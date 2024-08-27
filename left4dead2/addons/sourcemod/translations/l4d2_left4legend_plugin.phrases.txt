@@ -1,0 +1,8 @@
+"Phrases"
+{
+	"Restarts"
+	{
+		"en"		"Restarts"
+		"ru"		"Рестарты"
+	}
+}
