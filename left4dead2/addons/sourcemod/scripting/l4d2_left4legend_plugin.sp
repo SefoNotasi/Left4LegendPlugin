@@ -13,15 +13,24 @@
 #define TEAM_SURVIVORS		   2
 #define TEAM_INFECTED		   3
 #define TANK_CLASS			   8
+#define MIN_CHANCE			   1
+#define MAX_CHANCE			   100
 #define MAX_SI				   28
 #define MAX_INT_STRING_LENGTH  11
 #define MUTE				   0.0
 #define DEFAULT_SPAWN_COUNT	   1
+#define DEFAULT_SI_LIMIT	   6
 #define FIRST_ARGUMENT		   1
 #define CLIENT_NOT_FOUND	   0
 #define PLAYER_PATH_LENGTH	   7
-#define ENABLE				   1
 #define DISABLE				   0
+#define ENABLE				   1
+#define AXIS_X				   0
+#define AXIS_Y				   1
+#define AXIS_Z				   2
+#define AXES_XYZ			   3
+#define ANGLE_UP			   90.0
+#define ANGLE_HORIZONTAL	   0.0
 #define EVENT_USER_MESSAGE	   "PZDmgMsg"
 #define EVENT_PLAYER_DEATH	   "player_death"
 #define EVENT_PLAYER_INCAP	   "player_incapacitated"
@@ -32,8 +41,22 @@
 #define EVENT_REVIVE_SUCCESS   "revive_success"
 #define EVENT_SURVIVOR_RESCUED "survivor_rescued"
 #define EVENT_AWARD_EARNED	   "award_earned"
+#define EVENT_WITCH_KILLED	   "witch_killed"
 #define EVENT_CAR_ALARM		   "OnCarAlarmStart"
 #define PROP_CAR_ALARM		   "prop_car_alarm"
+#define PROP_SEND			   Prop_Send
+#define ENTITY_WORLD		   0
+#define ENTITY_DEFIB		   1
+#define ENTITY_ADREN		   2
+#define ENTITY_JAR			   3
+#define ENTITY_SIGHT		   4
+#define ENTITY_ORIGIN		   "origin"
+#define ENTITY_OFFSET		   30.0
+#define ENTITY_OFFSET_Z_MIN	   10.0
+#define ENTITY_CREATION_FAILED -1
+#define ENTITY_DISABLE		   "0"
+#define ENTITY_ENABLE		   "1"
+#define ENTITY_MUST_EXIST	   "2"
 
 static const char g_sInfectedSounds[13][] = {
 	"player/boomer/voice/alert/",
@@ -62,9 +85,9 @@ static const char g_sInfectedClasses[6][] = {
 
 static const int g_sInfectedClassesCount = sizeof(g_sInfectedClasses) - 1;
 
-ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected;
-int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof(g_sInfectedSounds)];
-bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts;
+ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootDefib, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar;
+int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootDefib, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof(g_sInfectedSounds)];
+bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
 
 public Plugin myinfo =
 { name = "[L4D2] Left 4 Legend plugin", author = "Sefo, Lombaxtard", description = "Makes L4D2 challenging again!", version = PLUGIN_VERSION, url = "Sefo.su"
@@ -99,6 +122,14 @@ public void OnPluginStart()
 	g_hCvarKillFeed		  = CreateConVar("l4d2_l4lp_kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarCarAlarm		  = CreateConVar("l4d2_l4lp_alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarSilentInfected = CreateConVar("l4d2_l4lp_silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarInfectedLimit  = CreateConVar("l4d2_l4lp_infected_limit", "6", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
+	g_hCvarTankLoot		  = CreateConVar("l4d2_l4lp_tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarTankLootDefib  = CreateConVar("l4d2_l4lp_tank_loot_defib", "70", "0 = Off, Tank's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootSight  = CreateConVar("l4d2_l4lp_tank_loot_sight", "100", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootAdren  = CreateConVar("l4d2_l4lp_tank_loot_adren", "50", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarWitchLoot	  = CreateConVar("l4d2_l4lp_witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarWitchLootDefib = CreateConVar("l4d2_l4lp_witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarWitchLootJar	  = CreateConVar("l4d2_l4lp_witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	AutoExecConfig(true, "l4d2_left4legend_plugin");
 
 	g_hCvarEnable.AddChangeHook(CvarChanged_Enable);
@@ -110,11 +141,20 @@ public void OnPluginStart()
 	g_hCvarKillFeed.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarCarAlarm.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarSilentInfected.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarInfectedLimit.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarTankLoot.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarTankLootDefib.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarTankLootSight.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarTankLootAdren.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarWitchLoot.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarWitchLootDefib.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarWitchLootJar.AddChangeHook(CvarChanged_Cvars);
 
 	RegAdminCmd("sm_debug", CommandSetDebug, ADMFLAG_ROOT, "Set plugin debug mode");
 	RegAdminCmd("sm_spawn_tank", CommandSpawnTank, ADMFLAG_ROOT, "Spawns specified number of tanks (1 by default)");
 	RegAdminCmd("sm_spawn_si", CommandSpawnRandomSI, ADMFLAG_ROOT, "Spawns specified number of random special infected (1 by default)");
 	RegAdminCmd("sm_spawn_mob", CommandSpawnMob, ADMFLAG_ROOT, "Spawn horde");
+	RegAdminCmd("sm_limit_si", CommandLimitSI, ADMFLAG_ROOT, "Limit of special infected alive (tanks & witches not included)");
 
 	RegConsoleCmd("sm_restarts", CommandPrintRestarts, "Show number of restarts in chat");
 	RegConsoleCmd("sm_time", CommandPrintTime, "Show current date & time in chat");
@@ -169,6 +209,12 @@ void GetCvars()
 
 	g_iCvarDebug		  = g_hCvarDebug.IntValue;
 	g_iCvarSurvivorIncap  = g_hCvarSurvivorIncap.IntValue;
+	g_iCvarInfectedLimit  = g_hCvarInfectedLimit.IntValue;
+	g_iCvarTankLootDefib  = g_hCvarTankLootDefib.IntValue;
+	g_iCvarTankLootSight  = g_hCvarTankLootSight.IntValue;
+	g_iCvarTankLootAdren  = g_hCvarTankLootAdren.IntValue;
+	g_iCvarWitchLootDefib = g_hCvarWitchLootDefib.IntValue;
+	g_iCvarWitchLootJar	  = g_hCvarWitchLootJar.IntValue;
 
 	g_bCvarSurvivorDeath  = g_hCvarSurvivorDeath.BoolValue;
 	g_bCvarWitchHarasser  = g_hCvarWitchHarasser.BoolValue;
@@ -176,16 +222,20 @@ void GetCvars()
 	g_bCvarCarAlarm		  = g_hCvarCarAlarm.BoolValue;
 	g_bCvarSilentInfected = g_hCvarSilentInfected.BoolValue;
 	g_bCvarPrintRestarts  = g_hCvarPrintRestarts.BoolValue;
+	g_bCvarTankLoot		  = g_hCvarTankLoot.BoolValue;
+	g_bCvarWitchLoot	  = g_hCvarWitchLoot.BoolValue;
 }
 
 void HookEvents()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s HookEvents", DEBUG_TAG);
 
-	HookEvent(EVENT_PLAYER_DEATH, Event_PlayerDeath);
-	HookEvent(EVENT_PLAYER_INCAP, Event_PlayerIncap);
-	HookEvent(EVENT_LEDGE_GRAB, Event_PlayerIncap);
-	HookEvent(EVENT_WITCH_HARASSER, Event_WitchHarasser);
+	HookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
+	HookEvent(EVENT_PLAYER_DEATH, Event_TankDeath);
+	HookEvent(EVENT_PLAYER_INCAP, Event_SurvivorIncap);
+	HookEvent(EVENT_LEDGE_GRAB, Event_SurvivorIncap);
+	HookEvent(EVENT_WITCH_HARASSER, Event_WitchRage);
+	HookEvent(EVENT_WITCH_KILLED, Event_WitchDeath);
 	HookEvent(EVENT_PLAYER_DEATH, Event_Hide, EventHookMode_Pre);
 	HookEvent(EVENT_PLAYER_INCAP, Event_Hide, EventHookMode_Pre);
 	HookEvent(EVENT_HEAL_SUCCESS, Event_Hide, EventHookMode_Pre);
@@ -203,10 +253,12 @@ void UnhookEvents()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s UnhookEvents", DEBUG_TAG);
 
-	UnhookEvent(EVENT_PLAYER_DEATH, Event_PlayerDeath);
-	UnhookEvent(EVENT_PLAYER_INCAP, Event_PlayerIncap);
-	UnhookEvent(EVENT_LEDGE_GRAB, Event_PlayerIncap);
-	UnhookEvent(EVENT_WITCH_HARASSER, Event_WitchHarasser);
+	UnhookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
+	UnhookEvent(EVENT_PLAYER_DEATH, Event_TankDeath);
+	UnhookEvent(EVENT_PLAYER_INCAP, Event_SurvivorIncap);
+	UnhookEvent(EVENT_LEDGE_GRAB, Event_SurvivorIncap);
+	UnhookEvent(EVENT_WITCH_HARASSER, Event_WitchRage);
+	UnhookEvent(EVENT_WITCH_KILLED, Event_WitchDeath);
 	UnhookEvent(EVENT_PLAYER_DEATH, Event_Hide, EventHookMode_Pre);
 	UnhookEvent(EVENT_PLAYER_INCAP, Event_Hide, EventHookMode_Pre);
 	UnhookEvent(EVENT_HEAL_SUCCESS, Event_Hide, EventHookMode_Pre);
@@ -225,6 +277,18 @@ public void OnMapStart()
 	g_iRestarts = 0;
 
 	if (g_iCvarDebug) PrintToChatAll("%s OnMapStart \x04%d", DEBUG_TAG, g_iRestarts);
+}
+
+public Action L4D_OnGetScriptValueInt(const char[] key, int &retVal)
+{
+	if (StrEqual(key, "MaxSpecials"))
+	{
+		retVal = g_iCvarInfectedLimit;
+
+		return Plugin_Handled;
+	}
+
+	return Plugin_Continue;
 }
 
 public Action SoundHook(int clients[64], int &numClients, char sample[PLATFORM_MAX_PATH], int &entity, int &channel, float &volume, int &level, int &pitch, int &flags)
@@ -276,7 +340,7 @@ Action CommandSetDebug(int client, int arguments)
 {
 	g_iCvarDebug = GetDebugMode(arguments);
 
-	PrintToChatAll("%s CommandSetDebug \x04%d", DEBUG_TAG, g_iCvarDebug);
+	if (g_iCvarDebug) PrintToChatAll("%s CommandSetDebug \x04%d", DEBUG_TAG, g_iCvarDebug);
 
 	return Plugin_Handled;
 }
@@ -298,6 +362,15 @@ Action CommandSpawnTank(int client, int arguments)
 Action CommandSpawnMob(int client, int arguments)
 {
 	SpawnMob(client);
+
+	return Plugin_Handled;
+}
+
+Action CommandLimitSI(int client, int arguments)
+{
+	g_iCvarInfectedLimit = GetInfectedLimit(arguments);
+
+	if (g_iCvarDebug) PrintToChatAll("%s CommandLimitSI \x04%d", DEBUG_TAG, g_iCvarInfectedLimit);
 
 	return Plugin_Handled;
 }
@@ -342,7 +415,40 @@ void Event_CarAlarm(const char[] output, int caller, int activator, float delay)
 	SpawnTank(client);
 }
 
-void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
+void Event_TankDeath(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!g_bCvarTankLoot) return;
+
+	int client	 = GetEventClient(event);
+	int attacker = GetEventAttacker(event);
+
+	if (IsClientAttacker(client, attacker) || !IsClient(client) || !IsClientConnected(client) || !IsClientInGame(client) || !IsInfected(client)) return;
+
+	if (!IsTank(client)) return;
+
+	if (g_iCvarDebug) PrintToChatAll("%s Event_TankDeath \x04%s \x05%s \x03%s", DEBUG_TAG, GetName(client), name, GetName(attacker));
+
+	if (IsLucky(g_iCvarTankLootDefib)) DropLoot(client, ENTITY_DEFIB);
+
+	if (IsLucky(g_iCvarTankLootSight)) DropLoot(client, ENTITY_SIGHT);
+
+	if (IsLucky(g_iCvarTankLootAdren)) DropLoot(client, ENTITY_ADREN);
+}
+
+void Event_WitchDeath(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!g_bCvarWitchLoot) return;
+
+	int client = event.GetInt("witchid");
+
+	if (g_iCvarDebug) PrintToChatAll("%s Event_WitchDeath \x04%d \x05%s", DEBUG_TAG, client, name);
+
+	if (IsLucky(g_iCvarWitchLootDefib)) DropLoot(client, ENTITY_DEFIB);
+
+	if (IsLucky(g_iCvarWitchLootJar)) DropLoot(client, ENTITY_JAR);
+}
+
+void Event_SurvivorDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!g_bCvarSurvivorDeath) return;
 
@@ -350,12 +456,12 @@ void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 
 	if (!IsValidSurvivor(client)) return;
 
-	if (g_iCvarDebug) PrintToChatAll("%s Event_PlayerDeath \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
+	if (g_iCvarDebug) PrintToChatAll("%s Event_SurvivorDeath \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
 
 	SpawnMob(client);
 }
 
-void Event_PlayerIncap(Event event, const char[] name, bool dontBroadcast)
+void Event_SurvivorIncap(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!g_iCvarSurvivorIncap) return;
 
@@ -363,12 +469,12 @@ void Event_PlayerIncap(Event event, const char[] name, bool dontBroadcast)
 
 	if (!IsValidSurvivor(client)) return;
 
-	if (g_iCvarDebug) PrintToChatAll("%s Event_PlayerIncap \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
+	if (g_iCvarDebug) PrintToChatAll("%s Event_SurvivorIncap \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
 
 	SpawnRandomSI(client, g_iCvarSurvivorIncap);
 }
 
-void Event_WitchHarasser(Event event, const char[] name, bool dontBroadcast)
+void Event_WitchRage(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!g_bCvarWitchHarasser) return;
 
@@ -376,7 +482,7 @@ void Event_WitchHarasser(Event event, const char[] name, bool dontBroadcast)
 
 	if (!client) return;
 
-	if (g_iCvarDebug) PrintToChatAll("%s Event_WitchHarasser \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
+	if (g_iCvarDebug) PrintToChatAll("%s Event_WitchRage \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
 
 	SpawnMob(client);
 }
@@ -430,6 +536,101 @@ void PrintRestarts()
 	PrintToChatAll("\x01%t: \x04%d", "Restarts", g_iRestarts);
 }
 
+void DropLoot(int client, int entity)
+{
+	if (!entity) return;
+
+	float origin[AXES_XYZ];
+	GetEntPropVector(client, PROP_SEND, "m_vecOrigin", origin);
+
+	float offset[AXES_XYZ];
+	GetRandomOffset(origin, offset);
+
+	if (g_iCvarDebug) PrintToChatAll("%s DropLoot \x04%d", DEBUG_TAG, entity);
+
+	switch (entity)
+	{
+		case ENTITY_DEFIB: CreateEntity("weapon_defibrillator", offset);
+		case ENTITY_ADREN: CreateEntity("weapon_adrenaline", offset);
+		case ENTITY_JAR: CreateEntity("weapon_vomitjar", offset);
+		case ENTITY_SIGHT:
+			if (GetGroundPos(offset, offset)) CreateSight(offset);
+	}
+}
+
+int CreateEntity(const char[] name, const float origin[AXES_XYZ], int ammo = DISABLE)
+{
+	int entity = CreateEntityByName(name);
+
+	if (entity == ENTITY_CREATION_FAILED) return ENTITY_CREATION_FAILED;
+
+	DispatchKeyValueVector(entity, ENTITY_ORIGIN, origin);
+	DispatchSpawn(entity);
+
+	if (ammo) SetEntProp(entity, PROP_SEND, "m_iExtraPrimaryAmmo", ammo);
+
+	if (g_iCvarDebug) PrintToChatAll("%s CreateEntity \x04%s \x05%d \x03%d", DEBUG_TAG, name, entity, ammo);
+
+	return entity;
+}
+
+int CreateSight(const float origin[AXES_XYZ])
+{
+	int entity = CreateEntityByName("upgrade_spawn");
+
+	if (entity == ENTITY_CREATION_FAILED) return ENTITY_CREATION_FAILED;
+
+	DispatchKeyValueVector(entity, ENTITY_ORIGIN, origin);
+	DispatchKeyValue(entity, "spawnflags", ENTITY_MUST_EXIST);
+	DispatchKeyValue(entity, "laser_sight", ENTITY_ENABLE);
+	DispatchKeyValue(entity, "upgradepack_incendiary", ENTITY_DISABLE);
+	DispatchKeyValue(entity, "upgradepack_explosive", ENTITY_DISABLE);
+	DispatchSpawn(entity);
+
+	if (g_iCvarDebug) PrintToChatAll("%s CreateSight \x04%d", DEBUG_TAG, entity);
+
+	return entity;
+}
+
+void GetRandomOffset(const float origin[AXES_XYZ], float offset[AXES_XYZ])
+{
+	offset[AXIS_X] = origin[AXIS_X] + GetRandomFloat(-ENTITY_OFFSET, ENTITY_OFFSET);
+	offset[AXIS_Y] = origin[AXIS_Y] + GetRandomFloat(-ENTITY_OFFSET, ENTITY_OFFSET);
+	offset[AXIS_Z] = origin[AXIS_Z] + GetRandomFloat(ENTITY_OFFSET_Z_MIN, ENTITY_OFFSET);
+}
+
+bool GetGroundPos(const float vector[AXES_XYZ], float ground[AXES_XYZ])
+{
+	Handle trace = TR_TraceRayFilterEx(vector, view_as<float>({ ANGLE_UP, ANGLE_HORIZONTAL, ANGLE_HORIZONTAL }), CONTENTS_SOLID, RayType_Infinite, TR_FilterWorld);
+
+	if (TR_DidHit(trace))
+	{
+		TR_GetEndPosition(ground, trace);
+		trace.Close();
+
+		return true;
+	}
+
+	trace.Close();
+
+	return false;
+}
+
+bool TR_FilterWorld(int entity, int mask)
+{
+	return entity == ENTITY_WORLD;
+}
+
+bool IsLucky(int chance)
+{
+	return GetRandom() <= chance;
+}
+
+int GetRandom()
+{
+	return GetRandomInt(MIN_CHANCE, MAX_CHANCE);
+}
+
 int GetDebugMode(int arguments)
 {
 	if (arguments == FIRST_ARGUMENT)
@@ -454,9 +655,31 @@ int GetSpawnCount(int arguments)
 	return DEFAULT_SPAWN_COUNT;
 }
 
+int GetInfectedLimit(int arguments)
+{
+	if (arguments == FIRST_ARGUMENT)
+	{
+		int limit = GetArgument();
+
+		if (limit != g_iCvarInfectedLimit && limit >= DISABLE && limit <= MAX_SI) return limit;
+	}
+
+	return DEFAULT_SI_LIMIT;
+}
+
 int GetEventClient(Event event)
 {
 	return GetClientOfUserId(event.GetInt("userid"));
+}
+
+int GetEventAttacker(Event event)
+{
+	return GetClientOfUserId(event.GetInt("attacker"));
+}
+
+bool IsClientAttacker(int client, int attacker)
+{
+	return client == attacker;
 }
 
 int GetAnyClient()
@@ -502,13 +725,23 @@ bool HasTank()
 
 int GetTankCount()
 {
-	int tankCount;
+	int count;
 
 	for (int client = 1; client <= MaxClients; client++)
 		if (IsClientInGame(client) && IsPlayerAlive(client) && IsInfected(client))
-			if (GetEntProp(client, Prop_Send, "m_zombieClass") == TANK_CLASS) tankCount++;
+			if (IsTank(client)) count++;
 
-	return tankCount;
+	return count;
+}
+
+int GetInfectedClass(int cilent)
+{
+	return GetEntProp(cilent, PROP_SEND, "m_zombieClass");
+}
+
+bool IsTank(int client)
+{
+	return GetInfectedClass(client) == TANK_CLASS;
 }
 
 void SetLengths()
