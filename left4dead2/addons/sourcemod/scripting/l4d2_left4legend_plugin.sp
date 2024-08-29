@@ -1,13 +1,39 @@
+/* Credits:
+ *
+ * Lombaxtard 💚
+ *
+ * SilverShot (l4d_silenced_infected.sp)
+ * Eärendil (l4d_zspawn.sp)
+ * BloodyBlade (l4d_witch_panic.sp)
+ * Lux (CarAlarmTriggerTank.sp)
+ * Jonny (l4d2_loot.sp)
+ * XeroX (special_survivor.sp)
+ * 东 (RestrictedGameModes.sp)
+ *
+ * Grey83 (kill feed)
+ * honorcode23, asto (PZDmgMsg)
+ * Dragokas (natives)
+ *
+ * HarryPotter
+ * firegaming
+ *
+ * AlliedModders
+ *
+ * 🐈🧡
+ */
+
 #pragma semicolon 1
 #pragma newdecls required
 
 #include <left4dhooks>
 
-#define PLUGIN_VERSION		   "0.0.1"
-#define CVAR_FLAGS			   FCVAR_NOTIFY
+// region Definitions
+#define PLUGIN_VERSION		   "1.0.0 300824"
+#define PLUGIN_FILE_NAME	   "l4d2_left4legend_plugin"
+#define DEBUG_TAG			   "\x04[\x05L4LP\x04] \x03Debug:\x01"
 #define SPAWN_COMMAND_OLD	   "z_spawn_old"
 #define SPAWN_ARGUMENT_AUTO	   "auto"
-#define DEBUG_TAG			   "\x04[\x05L4LP\x04] \x03Debug:\x01"
+#define CVAR_FLAGS			   FCVAR_NOTIFY
 #define DEBUG_EVENTS		   2
 #define DEBUG_SOUNDS		   3
 #define TEAM_SURVIVORS		   2
@@ -21,6 +47,7 @@
 #define DEFAULT_SPAWN_COUNT	   1
 #define DEFAULT_SI_LIMIT	   6
 #define FIRST_ARGUMENT		   1
+#define SECOND_ARGUMENT		   2
 #define CLIENT_NOT_FOUND	   0
 #define PLAYER_PATH_LENGTH	   7
 #define DISABLE				   0
@@ -57,7 +84,11 @@
 #define ENTITY_DISABLE		   "0"
 #define ENTITY_ENABLE		   "1"
 #define ENTITY_MUST_EXIST	   "2"
+#define NATIVE_FAILURE		   0
+#define NATIVE_SUCCESS		   1
+// endregion
 
+// region Global static constants
 static const char g_sInfectedSounds[13][] = {
 	"player/boomer/voice/alert/",
 	"player/boomer/voice/idle/",
@@ -83,14 +114,18 @@ static const char g_sInfectedClasses[6][] = {
 	"charger",
 };
 
-static const int g_sInfectedClassesCount = sizeof(g_sInfectedClasses) - 1;
+static const int g_sInfectedClassesCount = sizeof g_sInfectedClasses - 1;
+// endregion
 
+// region Global variables
 ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootDefib, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar;
-int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootDefib, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof(g_sInfectedSounds)];
+int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootDefib, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
 bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
+// endregion
 
+// region Plugin
 public Plugin myinfo =
-{ name = "[L4D2] Left 4 Legend plugin", author = "Sefo, Lombaxtard", description = "Makes L4D2 challenging again!", version = PLUGIN_VERSION, url = "Sefo.su"
+{ name = "[L4D2] Left 4 Legend plugin", author = "Sefo", description = "Makes L4D2 challenging again!", version = PLUGIN_VERSION, url = "Sefo.su"
 
 
 }
@@ -105,6 +140,14 @@ public APLRes
 		return APLRes_Failure;
 	}
 
+	// region Natives
+	CreateNative("L4LP_SpawnRandomSI", Native_SpawnRandomSI);
+	CreateNative("L4LP_SpawnTank", Native_SpawnTank);
+	CreateNative("L4LP_SpawnMob", Native_SpawnMob);
+	CreateNative("L4LP_GetRestartsCount", Native_GetRestartsCount);
+	RegPluginLibrary(PLUGIN_FILE_NAME);
+	// endregion
+
 	return APLRes_Success;
 }
 
@@ -112,6 +155,7 @@ public void OnPluginStart()
 {
 	LoadTranslations("l4d2_left4legend_plugin.phrases");
 
+	// region Cvars
 	CreateConVar("l4d2_l4lp_version", PLUGIN_VERSION, "Left 4 Legend plugin version", CVAR_FLAGS | FCVAR_DONTRECORD);
 	g_hCvarEnable		  = CreateConVar("l4d2_l4lp_enable", "1", "0 = Plugin off, 1 = Plugin on", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarDebug		  = CreateConVar("l4d2_l4lp_debug", "0", "0 = Debug off, 1 = Debug on, 2 = Debug events, 3 = Debug sounds", CVAR_FLAGS, true, float(DISABLE), true, float(DEBUG_SOUNDS));
@@ -130,7 +174,7 @@ public void OnPluginStart()
 	g_hCvarWitchLoot	  = CreateConVar("l4d2_l4lp_witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarWitchLootDefib = CreateConVar("l4d2_l4lp_witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarWitchLootJar	  = CreateConVar("l4d2_l4lp_witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	AutoExecConfig(true, "l4d2_left4legend_plugin");
+	AutoExecConfig(true, PLUGIN_FILE_NAME);
 
 	g_hCvarEnable.AddChangeHook(CvarChanged_Enable);
 	g_hCvarDebug.AddChangeHook(CvarChanged_Cvars);
@@ -149,21 +193,26 @@ public void OnPluginStart()
 	g_hCvarWitchLoot.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarWitchLootDefib.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarWitchLootJar.AddChangeHook(CvarChanged_Cvars);
+	// endregion
 
+	// region Commands
 	RegAdminCmd("sm_debug", CommandSetDebug, ADMFLAG_ROOT, "Set plugin debug mode");
-	RegAdminCmd("sm_spawn_tank", CommandSpawnTank, ADMFLAG_ROOT, "Spawns specified number of tanks (1 by default)");
-	RegAdminCmd("sm_spawn_si", CommandSpawnRandomSI, ADMFLAG_ROOT, "Spawns specified number of random special infected (1 by default)");
-	RegAdminCmd("sm_spawn_mob", CommandSpawnMob, ADMFLAG_ROOT, "Spawn horde");
 	RegAdminCmd("sm_limit_si", CommandLimitSI, ADMFLAG_ROOT, "Limit of special infected alive (tanks & witches not included)");
+	RegAdminCmd("sm_spawn_si", CommandSpawnRandomSI, ADMFLAG_ROOT, "Spawns specified number of random special infected (1 by default)");
+	RegAdminCmd("sm_spawn_tank", CommandSpawnTank, ADMFLAG_ROOT, "Spawns specified number of tanks (1 by default)");
+	RegAdminCmd("sm_spawn_mob", CommandSpawnMob, ADMFLAG_ROOT, "Spawn horde");
 
 	RegConsoleCmd("sm_restarts", CommandPrintRestarts, "Show number of restarts in chat");
 	RegConsoleCmd("sm_time", CommandPrintTime, "Show current date & time in chat");
+	// endregion
 
 	SetLengths();
 
 	if (g_iCvarDebug) PrintToChatAll("%s OnPluginStart", DEBUG_TAG);
 }
+// endregion
 
+// region Cvars
 public void OnConfigsExecuted()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s OnConfigsExecuted", DEBUG_TAG);
@@ -225,7 +274,9 @@ void GetCvars()
 	g_bCvarTankLoot		  = g_hCvarTankLoot.BoolValue;
 	g_bCvarWitchLoot	  = g_hCvarWitchLoot.BoolValue;
 }
+// endregion
 
+// region Hooks
 void HookEvents()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s HookEvents", DEBUG_TAG);
@@ -271,14 +322,82 @@ void UnhookEvents()
 	UnhookEntityOutput(PROP_CAR_ALARM, EVENT_CAR_ALARM, Event_CarAlarm);
 	RemoveNormalSoundHook(SoundHook);
 }
+// endregion
 
-public void OnMapStart()
+// region Natives
+int Native_SpawnRandomSI(Handle plugin, int numParams)
 {
-	g_iRestarts = 0;
+	int client, count;
 
-	if (g_iCvarDebug) PrintToChatAll("%s OnMapStart \x04%d", DEBUG_TAG, g_iRestarts);
+	if (!IsNativeParamsFulfilled(numParams, client, count)) return NATIVE_FAILURE;
+
+	if (g_iCvarDebug) PrintToChatAll("%s Native_SpawnRandomSI \x04%s \x05%d", DEBUG_TAG, GetName(client), count);
+
+	SpawnRandomSI(client, count);
+
+	return NATIVE_SUCCESS;
 }
 
+int Native_SpawnTank(Handle plugin, int numParams)
+{
+	int client, count;
+
+	if (!IsNativeParamsFulfilled(numParams, client, count)) return NATIVE_FAILURE;
+
+	if (g_iCvarDebug) PrintToChatAll("%s Native_SpawnTank \x04%s \x05%d", DEBUG_TAG, GetName(client), count);
+
+	SpawnTank(client, count);
+
+	return NATIVE_SUCCESS;
+}
+
+int Native_SpawnMob(Handle plugin, int numParams)
+{
+	if (!numParams) return ThrowNativeError(SP_ERROR_PARAM, "Invalid numParams", numParams);
+
+	int client = GetNativeCell(FIRST_ARGUMENT);
+
+	if (!client) return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client", client);
+
+	if (g_iCvarDebug) PrintToChatAll("%s Native_SpawnMob \x04%s", DEBUG_TAG, GetName(client));
+
+	SpawnMob(client);
+
+	return NATIVE_SUCCESS;
+}
+
+int Native_GetRestartsCount(Handle plugin, int numParams)
+{
+	if (g_iCvarDebug) PrintToChatAll("%s Native_GetRestartsCount \x04%d", DEBUG_TAG, g_iRestarts);
+
+	return g_iRestarts;
+}
+
+bool IsNativeParamsFulfilled(int numParams, int &client, int &count)
+{
+	if (numParams < FIRST_ARGUMENT)
+	{
+		ThrowNativeError(SP_ERROR_PARAM, "Invalid numParams", numParams);
+		return false;
+	}
+
+	client = GetNativeCell(FIRST_ARGUMENT);
+
+	if (!client)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Invalid client", client);
+		return false;
+	}
+
+	if (numParams >= SECOND_ARGUMENT) count = GetNativeCell(SECOND_ARGUMENT);
+
+	if (!count) count = DEFAULT_SPAWN_COUNT;
+
+	return true;
+}
+// endregion
+
+// region Actions
 public Action L4D_OnGetScriptValueInt(const char[] key, int &retVal)
 {
 	if (StrEqual(key, "MaxSpecials"))
@@ -296,7 +415,7 @@ public Action SoundHook(int clients[64], int &numClients, char sample[PLATFORM_M
 	if (!g_bCvarSilentInfected) return Plugin_Continue;
 
 	if (strncmp(sample, "player/", PLAYER_PATH_LENGTH, false) == 0)
-		for (int i = 0; i < sizeof(g_sInfectedSounds); i++)
+		for (int i = 0; i < sizeof g_sInfectedSounds; i++)
 			if (strncmp(sample[PLAYER_PATH_LENGTH], g_sInfectedSounds[i][PLAYER_PATH_LENGTH], g_iInfectedSoundsLengths[i] - PLAYER_PATH_LENGTH, false) == 0)
 			{
 				if (g_iCvarDebug == DEBUG_SOUNDS) PrintToChatAll("%s %s", DEBUG_TAG, sample);
@@ -335,12 +454,23 @@ Action PZDmgMsg(UserMsg msg_id, BfRead msg, const int[] players, int playersNum,
 
 	return Plugin_Continue;
 }
+// endregion
 
+// region Commands
 Action CommandSetDebug(int client, int arguments)
 {
 	g_iCvarDebug = GetDebugMode(arguments);
 
 	if (g_iCvarDebug) PrintToChatAll("%s CommandSetDebug \x04%d", DEBUG_TAG, g_iCvarDebug);
+
+	return Plugin_Handled;
+}
+
+Action CommandLimitSI(int client, int arguments)
+{
+	g_iCvarInfectedLimit = GetInfectedLimit(arguments);
+
+	if (g_iCvarDebug) PrintToChatAll("%s CommandLimitSI \x04%d", DEBUG_TAG, g_iCvarInfectedLimit);
 
 	return Plugin_Handled;
 }
@@ -366,24 +496,6 @@ Action CommandSpawnMob(int client, int arguments)
 	return Plugin_Handled;
 }
 
-Action CommandLimitSI(int client, int arguments)
-{
-	g_iCvarInfectedLimit = GetInfectedLimit(arguments);
-
-	if (g_iCvarDebug) PrintToChatAll("%s CommandLimitSI \x04%d", DEBUG_TAG, g_iCvarInfectedLimit);
-
-	return Plugin_Handled;
-}
-
-Action CommandPrintTime(int client, int arguments)
-{
-	char time[64];
-	FormatTime(time, sizeof(time), "\x05%d\x01.\x05%m\x01.\x05%y \x04%B\x01, \x04%A \x03%H\x01:\x03%M\x01:\x03%S \x04%p", GetTime());
-	PrintToChatAll(time);
-
-	return Plugin_Handled;
-}
-
 Action CommandPrintRestarts(int client, int arguments)
 {
 	PrintRestarts();
@@ -391,6 +503,17 @@ Action CommandPrintRestarts(int client, int arguments)
 	return Plugin_Handled;
 }
 
+Action CommandPrintTime(int client, int arguments)
+{
+	char time[64];
+	FormatTime(time, sizeof time, "\x05%d\x01.\x05%m\x01.\x05%y \x04%B\x01, \x04%A \x03%H\x01:\x03%M\x01:\x03%S \x04%p", GetTime());
+	PrintToChatAll(time);
+
+	return Plugin_Handled;
+}
+// endregion
+
+// region Events
 void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	g_iRestarts++;
@@ -486,7 +609,9 @@ void Event_WitchRage(Event event, const char[] name, bool dontBroadcast)
 
 	SpawnMob(client);
 }
+// endregion
 
+// region Spawns
 void SpawnRandomSI(int client, int count = DEFAULT_SPAWN_COUNT)
 {
 	for (int i = 0; i < count; i++)
@@ -495,7 +620,7 @@ void SpawnRandomSI(int client, int count = DEFAULT_SPAWN_COUNT)
 
 		int	 randomIndex = GetRandomInt(0, g_sInfectedClassesCount);
 		char argument[64];
-		Format(argument, sizeof(argument), "%s %s", g_sInfectedClasses[randomIndex], SPAWN_ARGUMENT_AUTO);
+		Format(argument, sizeof argument, "%s %s", g_sInfectedClasses[randomIndex], SPAWN_ARGUMENT_AUTO);
 		ExecuteCheat(client, SPAWN_COMMAND_OLD, argument);
 	}
 }
@@ -507,7 +632,7 @@ void SpawnTank(int client, int count = DEFAULT_SPAWN_COUNT)
 		if (g_iCvarDebug) PrintToChatAll("%s SpawnTank \x04%s", DEBUG_TAG, GetName(client));
 
 		char argument[64];
-		Format(argument, sizeof(argument), "tank %s", SPAWN_ARGUMENT_AUTO);
+		Format(argument, sizeof argument, "tank %s", SPAWN_ARGUMENT_AUTO);
 		ExecuteCheat(client, SPAWN_COMMAND_OLD, argument);
 	}
 }
@@ -530,12 +655,23 @@ void ExecuteCheat(int client, const char[] command, const char[] argument)
 	FakeClientCommand(client, "%s %s", command, argument);
 	SetCommandFlags(command, flags | FCVAR_CHEAT);
 }
+// endregion
+
+// region Restarts
+public void OnMapStart()
+{
+	g_iRestarts = 0;
+
+	if (g_iCvarDebug) PrintToChatAll("%s OnMapStart \x04%d", DEBUG_TAG, g_iRestarts);
+}
 
 void PrintRestarts()
 {
 	PrintToChatAll("\x01%t: \x04%d", "Restarts", g_iRestarts);
 }
+// endregion
 
+// region Loot
 void DropLoot(int client, int entity)
 {
 	if (!entity) return;
@@ -620,7 +756,9 @@ bool TR_FilterWorld(int entity, int mask)
 {
 	return entity == ENTITY_WORLD;
 }
+// endregion
 
+// region Utils
 bool IsLucky(int chance)
 {
 	return GetRandom() <= chance;
@@ -693,7 +831,7 @@ int GetAnyClient()
 char[] GetName(int client)
 {
 	char name[MAX_NAME_LENGTH];
-	GetClientName(client, name, sizeof(name));
+	GetClientName(client, name, sizeof name);
 
 	return name;
 }
@@ -746,14 +884,15 @@ bool IsTank(int client)
 
 void SetLengths()
 {
-	for (int i = 0; i < sizeof(g_sInfectedSounds); i++)
+	for (int i = 0; i < sizeof g_sInfectedSounds; i++)
 		g_iInfectedSoundsLengths[i] = strlen(g_sInfectedSounds[i]);
 }
 
 int GetArgument()
 {
 	char argument[MAX_INT_STRING_LENGTH];
-	GetCmdArg(FIRST_ARGUMENT, argument, sizeof(argument));
+	GetCmdArg(FIRST_ARGUMENT, argument, sizeof argument);
 
 	return StringToInt(argument);
 }
+// endregion
