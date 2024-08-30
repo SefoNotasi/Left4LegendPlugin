@@ -26,66 +26,72 @@
 #pragma newdecls required
 
 #include <left4dhooks>
+#include <multicolors>
 
 // region Definitions
-#define PLUGIN_VERSION		   "1.0.0 300824"
-#define PLUGIN_FILE_NAME	   "l4d2_left4legend_plugin"
-#define DEBUG_TAG			   "\x04[\x05L4LP\x04] \x03Debug:\x01"
-#define SPAWN_COMMAND_OLD	   "z_spawn_old"
-#define SPAWN_ARGUMENT_AUTO	   "auto"
-#define CVAR_FLAGS			   FCVAR_NOTIFY
-#define DEBUG_EVENTS		   2
-#define DEBUG_SOUNDS		   3
-#define TEAM_SURVIVORS		   2
-#define TEAM_INFECTED		   3
-#define TANK_CLASS			   8
-#define MIN_CHANCE			   1
-#define MAX_CHANCE			   100
-#define MAX_SI				   28
-#define MAX_INT_STRING_LENGTH  11
-#define MUTE				   0.0
-#define DEFAULT_SPAWN_COUNT	   1
-#define DEFAULT_SI_LIMIT	   6
-#define FIRST_ARGUMENT		   1
-#define SECOND_ARGUMENT		   2
-#define CLIENT_NOT_FOUND	   0
-#define PLAYER_PATH_LENGTH	   7
-#define DISABLE				   0
-#define ENABLE				   1
-#define AXIS_X				   0
-#define AXIS_Y				   1
-#define AXIS_Z				   2
-#define AXES_XYZ			   3
-#define ANGLE_UP			   90.0
-#define ANGLE_HORIZONTAL	   0.0
-#define EVENT_USER_MESSAGE	   "PZDmgMsg"
-#define EVENT_PLAYER_DEATH	   "player_death"
-#define EVENT_PLAYER_INCAP	   "player_incapacitated"
-#define EVENT_LEDGE_GRAB	   "player_ledge_grab"
-#define EVENT_WITCH_HARASSER   "witch_harasser_set"
-#define EVENT_MISSION_LOST	   "mission_lost"
-#define EVENT_HEAL_SUCCESS	   "heal_success"
-#define EVENT_REVIVE_SUCCESS   "revive_success"
-#define EVENT_SURVIVOR_RESCUED "survivor_rescued"
-#define EVENT_AWARD_EARNED	   "award_earned"
-#define EVENT_WITCH_KILLED	   "witch_killed"
-#define EVENT_CAR_ALARM		   "OnCarAlarmStart"
-#define PROP_CAR_ALARM		   "prop_car_alarm"
-#define PROP_SEND			   Prop_Send
-#define ENTITY_WORLD		   0
-#define ENTITY_DEFIB		   1
-#define ENTITY_ADREN		   2
-#define ENTITY_JAR			   3
-#define ENTITY_SIGHT		   4
-#define ENTITY_ORIGIN		   "origin"
-#define ENTITY_OFFSET		   30.0
-#define ENTITY_OFFSET_Z_MIN	   10.0
-#define ENTITY_CREATION_FAILED -1
-#define ENTITY_DISABLE		   "0"
-#define ENTITY_ENABLE		   "1"
-#define ENTITY_MUST_EXIST	   "2"
-#define NATIVE_FAILURE		   0
-#define NATIVE_SUCCESS		   1
+#define PLUGIN_VERSION				"1.0.0 300824"
+#define PLUGIN_FILE_NAME			"l4d2_left4legend_plugin"
+#define DEBUG_TAG					"\x04[\x05L4LP\x04] \x03Debug:\x01"
+#define SPAWN_COMMAND_OLD			"z_spawn_old"
+#define SPAWN_ARGUMENT_AUTO			"auto"
+#define CVAR_FLAGS					FCVAR_NOTIFY
+#define DEBUG_EVENTS				2
+#define DEBUG_SOUNDS				3
+#define TEAM_SURVIVORS				2
+#define TEAM_INFECTED				3
+#define TANK_CLASS					8
+#define MIN_CLIENT					1
+#define MIN_CHANCE					1
+#define MAX_CHANCE					100
+#define MAX_SI						28
+#define MAX_ARGUMENT_INTEGER_LENGTH 11
+#define MAX_ARGUMENT_LENGTH			64
+#define MAX_DIFFICULTY_LENGTH		11
+#define INVALID_DIFFICULTY			-1
+#define STRING_EQUAL				0
+#define MUTE						0.0
+#define DEFAULT_SPAWN_COUNT			1
+#define DEFAULT_SI_LIMIT			6
+#define FIRST_ARGUMENT				1
+#define SECOND_ARGUMENT				2
+#define CLIENT_NOT_FOUND			0
+#define PLAYER_PATH_LENGTH			7
+#define DISABLE						0
+#define ENABLE						1
+#define AXIS_X						0
+#define AXIS_Y						1
+#define AXIS_Z						2
+#define AXES_XYZ					3
+#define ANGLE_UP					90.0
+#define ANGLE_HORIZONTAL			0.0
+#define PROP_SEND					Prop_Send
+#define PROP_CAR_ALARM				"prop_car_alarm"
+#define EVENT_CAR_ALARM				"OnCarAlarmStart"
+#define EVENT_USER_MESSAGE			"PZDmgMsg"
+#define EVENT_PLAYER_DEATH			"player_death"
+#define EVENT_PLAYER_INCAP			"player_incapacitated"
+#define EVENT_LEDGE_GRAB			"player_ledge_grab"
+#define EVENT_WITCH_HARASSER		"witch_harasser_set"
+#define EVENT_MISSION_LOST			"mission_lost"
+#define EVENT_HEAL_SUCCESS			"heal_success"
+#define EVENT_REVIVE_SUCCESS		"revive_success"
+#define EVENT_SURVIVOR_RESCUED		"survivor_rescued"
+#define EVENT_AWARD_EARNED			"award_earned"
+#define EVENT_WITCH_KILLED			"witch_killed"
+#define ENTITY_WORLD				0
+#define ENTITY_DEFIB				1
+#define ENTITY_ADREN				2
+#define ENTITY_JAR					3
+#define ENTITY_SIGHT				4
+#define ENTITY_ORIGIN				"origin"
+#define ENTITY_OFFSET				30.0
+#define ENTITY_OFFSET_Z_MIN			10.0
+#define ENTITY_CREATION_FAILED		-1
+#define ENTITY_DISABLE				"0"
+#define ENTITY_ENABLE				"1"
+#define ENTITY_MUST_EXIST			"2"
+#define NATIVE_FAILURE				0
+#define NATIVE_SUCCESS				1
 // endregion
 
 // region Global static constants
@@ -102,7 +108,7 @@ static const char g_sInfectedSounds[13][] = {
 	"player/smoker/voice/idle/",
 	"player/spitter/voice/alert/",
 	"player/spitter/voice/idle/",
-	"player/tank/voice/idle/"
+	"player/tank/voice/idle/",
 };
 
 static const char g_sInfectedClasses[6][] = {
@@ -114,12 +120,21 @@ static const char g_sInfectedClasses[6][] = {
 	"charger",
 };
 
+static const char g_sDifficulties[4][] = {
+	"Easy",
+	"Normal",
+	"Hard",
+	"Impossible",
+};
+
 static const int g_sInfectedClassesCount = sizeof g_sInfectedClasses - 1;
+
+static const int g_sDifficultiesCount	 = sizeof g_sDifficulties - 1;
 // endregion
 
 // region Global variables
-ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootDefib, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar;
-int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootDefib, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
+ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootDefib, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
+int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootDefib, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
 bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
 // endregion
 
@@ -174,6 +189,8 @@ public void OnPluginStart()
 	g_hCvarWitchLoot	  = CreateConVar("l4d2_l4lp_witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarWitchLootDefib = CreateConVar("l4d2_l4lp_witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarWitchLootJar	  = CreateConVar("l4d2_l4lp_witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarMinDifficulty  = CreateConVar("l4d2_l4lp_min_difficulty", "2", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
+	g_hCvarDifficulty	  = FindConVar("z_difficulty");
 	AutoExecConfig(true, PLUGIN_FILE_NAME);
 
 	g_hCvarEnable.AddChangeHook(CvarChanged_Enable);
@@ -193,6 +210,8 @@ public void OnPluginStart()
 	g_hCvarWitchLoot.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarWitchLootDefib.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarWitchLootJar.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarMinDifficulty.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarDifficulty.AddChangeHook(CvarChanged_Difficulty);
 	// endregion
 
 	// region Commands
@@ -220,14 +239,14 @@ public void OnConfigsExecuted()
 	EnablePlugin();
 }
 
-void CvarChanged_Enable(Handle convar, const char[] oldValue, const char[] newValue)
+void CvarChanged_Enable(Handle conVar, const char[] oldValue, const char[] newValue)
 {
 	if (g_iCvarDebug) PrintToChatAll("%s CvarChanged_Enable", DEBUG_TAG);
 
 	EnablePlugin();
 }
 
-void CvarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newValue)
+void CvarChanged_Cvars(Handle conVar, const char[] oldValue, const char[] newValue)
 {
 	if (g_iCvarDebug) PrintToChatAll("%s CvarChanged_Cvars", DEBUG_TAG);
 
@@ -264,6 +283,7 @@ void GetCvars()
 	g_iCvarTankLootAdren  = g_hCvarTankLootAdren.IntValue;
 	g_iCvarWitchLootDefib = g_hCvarWitchLootDefib.IntValue;
 	g_iCvarWitchLootJar	  = g_hCvarWitchLootJar.IntValue;
+	g_iCvarMinDifficulty  = g_hCvarMinDifficulty.IntValue;
 
 	g_bCvarSurvivorDeath  = g_hCvarSurvivorDeath.BoolValue;
 	g_bCvarWitchHarasser  = g_hCvarWitchHarasser.BoolValue;
@@ -414,9 +434,9 @@ public Action SoundHook(int clients[64], int &numClients, char sample[PLATFORM_M
 {
 	if (!g_bCvarSilentInfected) return Plugin_Continue;
 
-	if (strncmp(sample, "player/", PLAYER_PATH_LENGTH, false) == 0)
-		for (int i = 0; i < sizeof g_sInfectedSounds; i++)
-			if (strncmp(sample[PLAYER_PATH_LENGTH], g_sInfectedSounds[i][PLAYER_PATH_LENGTH], g_iInfectedSoundsLengths[i] - PLAYER_PATH_LENGTH, false) == 0)
+	if (strncmp(sample, "player/", PLAYER_PATH_LENGTH, false) == STRING_EQUAL)
+		for (int index = 0; index < sizeof g_sInfectedSounds; index++)
+			if (strncmp(sample[PLAYER_PATH_LENGTH], g_sInfectedSounds[index][PLAYER_PATH_LENGTH], g_iInfectedSoundsLengths[index] - PLAYER_PATH_LENGTH, false) == STRING_EQUAL)
 			{
 				if (g_iCvarDebug == DEBUG_SOUNDS) PrintToChatAll("%s %s", DEBUG_TAG, sample);
 
@@ -425,7 +445,7 @@ public Action SoundHook(int clients[64], int &numClients, char sample[PLATFORM_M
 				return Plugin_Changed;
 			}
 
-	if (strncmp(sample, "npc/witch/voice/idle/", 21, false) == 0)
+	if (strncmp(sample, "npc/witch/voice/idle/", 21, false) == STRING_EQUAL)
 	{
 		if (g_iCvarDebug == DEBUG_SOUNDS) PrintToChatAll("%s %s", DEBUG_TAG, sample);
 
@@ -448,7 +468,7 @@ Action Event_Hide(Event event, const char[] name, bool dontBroadcast)
 	return Plugin_Changed;
 }
 
-Action PZDmgMsg(UserMsg msg_id, BfRead msg, const int[] players, int playersNum, bool reliable, bool init)
+Action PZDmgMsg(UserMsg messageId, BfRead message, const int[] players, int playersNum, bool reliable, bool init)
 {
 	if (g_bCvarKillFeed) return Plugin_Handled;
 
@@ -619,7 +639,7 @@ void SpawnRandomSI(int client, int count = DEFAULT_SPAWN_COUNT)
 		if (g_iCvarDebug) PrintToChatAll("%s SpawnRandomSI \x04%s", DEBUG_TAG, GetName(client));
 
 		int	 randomIndex = GetRandomInt(0, g_sInfectedClassesCount);
-		char argument[64];
+		char argument[MAX_ARGUMENT_LENGTH];
 		Format(argument, sizeof argument, "%s %s", g_sInfectedClasses[randomIndex], SPAWN_ARGUMENT_AUTO);
 		ExecuteCheat(client, SPAWN_COMMAND_OLD, argument);
 	}
@@ -631,7 +651,7 @@ void SpawnTank(int client, int count = DEFAULT_SPAWN_COUNT)
 	{
 		if (g_iCvarDebug) PrintToChatAll("%s SpawnTank \x04%s", DEBUG_TAG, GetName(client));
 
-		char argument[64];
+		char argument[MAX_ARGUMENT_LENGTH];
 		Format(argument, sizeof argument, "tank %s", SPAWN_ARGUMENT_AUTO);
 		ExecuteCheat(client, SPAWN_COMMAND_OLD, argument);
 	}
@@ -663,11 +683,13 @@ public void OnMapStart()
 	g_iRestarts = 0;
 
 	if (g_iCvarDebug) PrintToChatAll("%s OnMapStart \x04%d", DEBUG_TAG, g_iRestarts);
+
+	CheckDifficulty();
 }
 
 void PrintRestarts()
 {
-	PrintToChatAll("\x01%t: \x04%d", "Restarts", g_iRestarts);
+	CPrintToChatAll("%t%d", "Restarts", g_iRestarts);
 }
 // endregion
 
@@ -758,6 +780,49 @@ bool TR_FilterWorld(int entity, int mask)
 }
 // endregion
 
+// region Difficulty
+void CvarChanged_Difficulty(ConVar conVar, const char[] oldValue, const char[] newValue)
+{
+	if (g_iCvarDebug) PrintToChatAll("%s CvarChanged_Difficulty \x04%s \x05%s", DEBUG_TAG, oldValue, newValue);
+
+	CheckDifficulty();
+}
+
+void CheckDifficulty()
+{
+	if (IsDifficultyBelowMin()) SetMinDifficulty();
+}
+
+bool IsDifficultyBelowMin()
+{
+	char difficulty[MAX_DIFFICULTY_LENGTH];
+	g_hCvarDifficulty.GetString(difficulty, sizeof difficulty);
+
+	if (g_iCvarDebug) PrintToChatAll("%s IsDifficultyBelowMin \x04%d \x05%d", DEBUG_TAG, GetDifficultyIndex(difficulty), g_iCvarMinDifficulty);
+
+	return GetDifficultyIndex(difficulty) < g_iCvarMinDifficulty;
+}
+
+void SetMinDifficulty()
+{
+	char difficulty[MAX_DIFFICULTY_LENGTH];
+	strcopy(difficulty, sizeof difficulty, g_sDifficulties[g_iCvarMinDifficulty]);
+
+	if (g_iCvarDebug) PrintToChatAll("%s SetMinDifficulty \x04%s", DEBUG_TAG, difficulty);
+
+	g_hCvarDifficulty.SetString(difficulty);
+	CPrintToChatAll("%t%t", "Difficulty", difficulty);
+}
+
+int GetDifficultyIndex(const char[] difficulty)
+{
+	for (int index = 0; index < sizeof g_sDifficulties; index++)
+		if (StrEqual(difficulty, g_sDifficulties[index], false)) return index;
+
+	return INVALID_DIFFICULTY;
+}
+// endregion
+
 // region Utils
 bool IsLucky(int chance)
 {
@@ -773,7 +838,7 @@ int GetDebugMode(int arguments)
 {
 	if (arguments == FIRST_ARGUMENT)
 	{
-		int mode = GetArgument();
+		int mode = GetArgumentInteger();
 
 		if (mode != g_iCvarDebug && mode >= DISABLE && mode <= DEBUG_SOUNDS) return mode;
 	}
@@ -785,7 +850,7 @@ int GetSpawnCount(int arguments)
 {
 	if (arguments == FIRST_ARGUMENT)
 	{
-		int count = GetArgument();
+		int count = GetArgumentInteger();
 
 		if (count > DEFAULT_SPAWN_COUNT && count <= MAX_SI) return count;
 	}
@@ -797,7 +862,7 @@ int GetInfectedLimit(int arguments)
 {
 	if (arguments == FIRST_ARGUMENT)
 	{
-		int limit = GetArgument();
+		int limit = GetArgumentInteger();
 
 		if (limit != g_iCvarInfectedLimit && limit >= DISABLE && limit <= MAX_SI) return limit;
 	}
@@ -822,7 +887,7 @@ bool IsClientAttacker(int client, int attacker)
 
 int GetAnyClient()
 {
-	for (int client = 1; client <= MaxClients; client++)
+	for (int client = MIN_CLIENT; client <= MaxClients; client++)
 		if (IsClientInGame(client)) return client;
 
 	return CLIENT_NOT_FOUND;
@@ -865,7 +930,7 @@ int GetTankCount()
 {
 	int count;
 
-	for (int client = 1; client <= MaxClients; client++)
+	for (int client = MIN_CLIENT; client <= MaxClients; client++)
 		if (IsClientInGame(client) && IsPlayerAlive(client) && IsInfected(client))
 			if (IsTank(client)) count++;
 
@@ -884,13 +949,13 @@ bool IsTank(int client)
 
 void SetLengths()
 {
-	for (int i = 0; i < sizeof g_sInfectedSounds; i++)
-		g_iInfectedSoundsLengths[i] = strlen(g_sInfectedSounds[i]);
+	for (int index = 0; index < sizeof g_sInfectedSounds; index++)
+		g_iInfectedSoundsLengths[index] = strlen(g_sInfectedSounds[index]);
 }
 
-int GetArgument()
+int GetArgumentInteger()
 {
-	char argument[MAX_INT_STRING_LENGTH];
+	char argument[MAX_ARGUMENT_INTEGER_LENGTH];
 	GetCmdArg(FIRST_ARGUMENT, argument, sizeof argument);
 
 	return StringToInt(argument);

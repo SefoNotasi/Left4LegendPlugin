@@ -2,7 +2,32 @@
 {
 	"Restarts"
 	{
-		"en"		"Restarts"
-		"ru"		"Рестарты"
+		"en"	"Restarts: {ORANGE}"
+		"ru"	"Рестарты: {ORANGE}"
+	}
+	"Difficulty"
+	{
+		"en"	"{OLIVE}Left 4 Legend server {DEFAULT}only supports {ORANGE}Advanced {DEFAULT}& {ORANGE}Expert {DEFAULT}difficulty levels\nDifficulty changed to {LIGHTGREEN}"
+		"ru"	"{OLIVE}Left 4 Legend сервер {DEFAULT}поддерживает только уровни сложности {ORANGE}Мастер {DEFAULT}и {ORANGE}Эксперт\n{DEFAULT}Сложность изменена на {LIGHTGREEN}"
+	}
+	"Easy"
+	{
+		"en"	"Easy"
+		"ru"	"Легко"
+	}
+	"Normal"
+	{
+		"en"	"Normal"
+		"ru"	"Средне"
+	}
+	"Hard"
+	{
+		"en"	"Advanced"
+		"ru"	"Мастер"
+	}
+	"Impossible"
+	{
+		"en"	"Expert"
+		"ru"	"Эксперт"
 	}
 }
