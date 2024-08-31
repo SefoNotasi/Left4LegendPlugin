@@ -172,6 +172,7 @@ public void OnPluginStart()
 
 	// region Cvars
 	CreateConVar("l4d2_l4lp_version", PLUGIN_VERSION, "Left 4 Legend plugin version", CVAR_FLAGS | FCVAR_DONTRECORD);
+	CreateConVar("mat_hdr_manual_tonemap_rate", "1.0", "Fix: ConVarRef mat_hdr_manual_tonemap_rate doesn't point to an existing ConVar", FCVAR_NONE);
 	g_hCvarEnable		  = CreateConVar("l4d2_l4lp_enable", "1", "0 = Plugin off, 1 = Plugin on", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarDebug		  = CreateConVar("l4d2_l4lp_debug", "0", "0 = Debug off, 1 = Debug on, 2 = Debug events, 3 = Debug sounds", CVAR_FLAGS, true, float(DISABLE), true, float(DEBUG_SOUNDS));
 	g_hCvarSurvivorIncap  = CreateConVar("l4d2_l4lp_incap_spawn_si", "1", "0 = Off, Number of special infected spawned when a survivor is incapacitated", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
@@ -181,7 +182,7 @@ public void OnPluginStart()
 	g_hCvarKillFeed		  = CreateConVar("l4d2_l4lp_kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarCarAlarm		  = CreateConVar("l4d2_l4lp_alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarSilentInfected = CreateConVar("l4d2_l4lp_silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarInfectedLimit  = CreateConVar("l4d2_l4lp_infected_limit", "6", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
+	g_hCvarInfectedLimit  = CreateConVar("l4d2_l4lp_infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
 	g_hCvarTankLoot		  = CreateConVar("l4d2_l4lp_tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarTankLootDefib  = CreateConVar("l4d2_l4lp_tank_loot_defib", "70", "0 = Off, Tank's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarTankLootSight  = CreateConVar("l4d2_l4lp_tank_loot_sight", "100", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
