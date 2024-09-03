@@ -29,8 +29,9 @@
 #include <multicolors>
 
 // region Definitions
-#define PLUGIN_VERSION				"1.0.0 300824"
+#define PLUGIN_VERSION				"1.0.0 030924"
 #define PLUGIN_FILE_NAME			"l4d2_left4legend_plugin"
+#define PLUGIN_PREFIX				"l4d2_l4lp_"
 #define DEBUG_TAG					"\x04[\x05L4LP\x04] \x03Debug:\x01"
 #define SPAWN_COMMAND_OLD			"z_spawn_old"
 #define SPAWN_ARGUMENT_AUTO			"auto"
@@ -73,6 +74,7 @@
 #define EVENT_LEDGE_GRAB			"player_ledge_grab"
 #define EVENT_WITCH_HARASSER		"witch_harasser_set"
 #define EVENT_MISSION_LOST			"mission_lost"
+#define EVENT_DEFIB_USED			"defibrillator_used"
 #define EVENT_HEAL_SUCCESS			"heal_success"
 #define EVENT_REVIVE_SUCCESS		"revive_success"
 #define EVENT_SURVIVOR_RESCUED		"survivor_rescued"
@@ -168,29 +170,29 @@ public APLRes
 
 public void OnPluginStart()
 {
-	LoadTranslations("l4d2_left4legend_plugin.phrases");
+	LoadTranslations(PLUGIN_FILE_NAME... ".phrases");
 
 	// region Cvars
-	CreateConVar("l4d2_l4lp_version", PLUGIN_VERSION, "Left 4 Legend plugin version", CVAR_FLAGS | FCVAR_DONTRECORD);
+	CreateConVar(PLUGIN_PREFIX... "version", PLUGIN_VERSION, "Left 4 Legend plugin version", CVAR_FLAGS | FCVAR_DONTRECORD);
 	CreateConVar("mat_hdr_manual_tonemap_rate", "1.0", "Fix: ConVarRef mat_hdr_manual_tonemap_rate doesn't point to an existing ConVar", FCVAR_NONE);
-	g_hCvarEnable		  = CreateConVar("l4d2_l4lp_enable", "1", "0 = Plugin off, 1 = Plugin on", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarDebug		  = CreateConVar("l4d2_l4lp_debug", "0", "0 = Debug off, 1 = Debug on, 2 = Debug events, 3 = Debug sounds", CVAR_FLAGS, true, float(DISABLE), true, float(DEBUG_SOUNDS));
-	g_hCvarSurvivorIncap  = CreateConVar("l4d2_l4lp_incap_spawn_si", "1", "0 = Off, Number of special infected spawned when a survivor is incapacitated", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
-	g_hCvarSurvivorDeath  = CreateConVar("l4d2_l4lp_death_spawn_mob", "1", "0 = Off, 1 = Spawn horde when a survivor dies", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarWitchHarasser  = CreateConVar("l4d2_l4lp_witch_spawn_mob", "1", "0 = Off, 1 = Spawn horde when witch is enraged", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarPrintRestarts  = CreateConVar("l4d2_l4lp_print_restarts", "0", "0 = Off, 1 = Show in chat number of restarts on each new round", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarKillFeed		  = CreateConVar("l4d2_l4lp_kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarCarAlarm		  = CreateConVar("l4d2_l4lp_alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarSilentInfected = CreateConVar("l4d2_l4lp_silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarInfectedLimit  = CreateConVar("l4d2_l4lp_infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
-	g_hCvarTankLoot		  = CreateConVar("l4d2_l4lp_tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarTankLootDefib  = CreateConVar("l4d2_l4lp_tank_loot_defib", "70", "0 = Off, Tank's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarTankLootSight  = CreateConVar("l4d2_l4lp_tank_loot_sight", "100", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarTankLootAdren  = CreateConVar("l4d2_l4lp_tank_loot_adren", "50", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarWitchLoot	  = CreateConVar("l4d2_l4lp_witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarWitchLootDefib = CreateConVar("l4d2_l4lp_witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarWitchLootJar	  = CreateConVar("l4d2_l4lp_witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarMinDifficulty  = CreateConVar("l4d2_l4lp_min_difficulty", "2", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
+	g_hCvarEnable		  = CreateConVar(PLUGIN_PREFIX... "enable", "1", "0 = Plugin off, 1 = Plugin on", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarDebug		  = CreateConVar(PLUGIN_PREFIX... "debug", "0", "0 = Debug off, 1 = Debug on, 2 = Debug events, 3 = Debug sounds", CVAR_FLAGS, true, float(DISABLE), true, float(DEBUG_SOUNDS));
+	g_hCvarSurvivorIncap  = CreateConVar(PLUGIN_PREFIX... "incap_spawn_si", "1", "0 = Off, Number of special infected spawned when a survivor is incapacitated", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
+	g_hCvarSurvivorDeath  = CreateConVar(PLUGIN_PREFIX... "death_spawn_mob", "1", "0 = Off, 1 = Spawn horde when a survivor dies", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarWitchHarasser  = CreateConVar(PLUGIN_PREFIX... "witch_spawn_mob", "1", "0 = Off, 1 = Spawn horde when witch is enraged", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarPrintRestarts  = CreateConVar(PLUGIN_PREFIX... "print_restarts", "0", "0 = Off, 1 = Show in chat number of restarts on each new round", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarKillFeed		  = CreateConVar(PLUGIN_PREFIX... "kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarCarAlarm		  = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarSilentInfected = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarInfectedLimit  = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
+	g_hCvarTankLoot		  = CreateConVar(PLUGIN_PREFIX... "tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarTankLootDefib  = CreateConVar(PLUGIN_PREFIX... "tank_loot_defib", "70", "0 = Off, Tank's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootSight  = CreateConVar(PLUGIN_PREFIX... "tank_loot_sight", "100", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootAdren  = CreateConVar(PLUGIN_PREFIX... "tank_loot_adren", "50", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarWitchLoot	  = CreateConVar(PLUGIN_PREFIX... "witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarWitchLootDefib = CreateConVar(PLUGIN_PREFIX... "witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarWitchLootJar	  = CreateConVar(PLUGIN_PREFIX... "witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarMinDifficulty  = CreateConVar(PLUGIN_PREFIX... "min_difficulty", "2", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
 	g_hCvarDifficulty	  = FindConVar("z_difficulty");
 	AutoExecConfig(true, PLUGIN_FILE_NAME);
 
@@ -310,6 +312,7 @@ void HookEvents()
 	HookEvent(EVENT_WITCH_KILLED, Event_WitchDeath);
 	HookEvent(EVENT_PLAYER_DEATH, Event_Hide, EventHookMode_Pre);
 	HookEvent(EVENT_PLAYER_INCAP, Event_Hide, EventHookMode_Pre);
+	HookEvent(EVENT_DEFIB_USED, Event_Hide, EventHookMode_Pre);
 	HookEvent(EVENT_HEAL_SUCCESS, Event_Hide, EventHookMode_Pre);
 	HookEvent(EVENT_REVIVE_SUCCESS, Event_Hide, EventHookMode_Pre);
 	HookEvent(EVENT_SURVIVOR_RESCUED, Event_Hide, EventHookMode_Pre);
@@ -333,6 +336,7 @@ void UnhookEvents()
 	UnhookEvent(EVENT_WITCH_KILLED, Event_WitchDeath);
 	UnhookEvent(EVENT_PLAYER_DEATH, Event_Hide, EventHookMode_Pre);
 	UnhookEvent(EVENT_PLAYER_INCAP, Event_Hide, EventHookMode_Pre);
+	UnhookEvent(EVENT_DEFIB_USED, Event_Hide, EventHookMode_Pre);
 	UnhookEvent(EVENT_HEAL_SUCCESS, Event_Hide, EventHookMode_Pre);
 	UnhookEvent(EVENT_REVIVE_SUCCESS, Event_Hide, EventHookMode_Pre);
 	UnhookEvent(EVENT_SURVIVOR_RESCUED, Event_Hide, EventHookMode_Pre);
