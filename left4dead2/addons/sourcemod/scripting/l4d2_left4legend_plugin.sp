@@ -32,7 +32,9 @@
 #define PLUGIN_VERSION				"1.0.0 030924"
 #define PLUGIN_FILE_NAME			"l4d2_left4legend_plugin"
 #define PLUGIN_PREFIX				"l4d2_l4lp_"
+#define SOURCE_MOD_PREFIX			"sm_"
 #define DEBUG_TAG					"\x04[\x05L4LP\x04] \x03Debug:\x01"
+#define CRASH_COMMAND				"crash"
 #define SPAWN_COMMAND_OLD			"z_spawn_old"
 #define SPAWN_ARGUMENT_AUTO			"auto"
 #define CVAR_FLAGS					FCVAR_NOTIFY
@@ -218,14 +220,15 @@ public void OnPluginStart()
 	// endregion
 
 	// region Commands
-	RegAdminCmd("sm_debug", CommandSetDebug, ADMFLAG_ROOT, "Set plugin debug mode");
-	RegAdminCmd("sm_limit_si", CommandLimitSI, ADMFLAG_ROOT, "Limit of special infected alive (tanks & witches not included)");
-	RegAdminCmd("sm_spawn_si", CommandSpawnRandomSI, ADMFLAG_ROOT, "Spawns specified number of random special infected (1 by default)");
-	RegAdminCmd("sm_spawn_tank", CommandSpawnTank, ADMFLAG_ROOT, "Spawns specified number of tanks (1 by default)");
-	RegAdminCmd("sm_spawn_mob", CommandSpawnMob, ADMFLAG_ROOT, "Spawn horde");
+	RegAdminCmd(SOURCE_MOD_PREFIX... "debug", CommandSetDebug, ADMFLAG_ROOT, "Set plugin debug mode");
+	RegAdminCmd(SOURCE_MOD_PREFIX... "crash", CommandCrashServer, ADMFLAG_ROOT, "Crash server for test (example: check uploading Accelerator crash reports)");
+	RegAdminCmd(SOURCE_MOD_PREFIX... "limit_si", CommandLimitSI, ADMFLAG_ROOT, "Limit of special infected alive (tanks & witches not included)");
+	RegAdminCmd(SOURCE_MOD_PREFIX... "spawn_si", CommandSpawnRandomSI, ADMFLAG_ROOT, "Spawns specified number of random special infected (1 by default)");
+	RegAdminCmd(SOURCE_MOD_PREFIX... "spawn_tank", CommandSpawnTank, ADMFLAG_ROOT, "Spawns specified number of tanks (1 by default)");
+	RegAdminCmd(SOURCE_MOD_PREFIX... "spawn_mob", CommandSpawnMob, ADMFLAG_ROOT, "Spawn horde");
 
-	RegConsoleCmd("sm_restarts", CommandPrintRestarts, "Show number of restarts in chat");
-	RegConsoleCmd("sm_time", CommandPrintTime, "Show current date & time in chat");
+	RegConsoleCmd(SOURCE_MOD_PREFIX... "restarts", CommandPrintRestarts, "Show number of restarts in chat");
+	RegConsoleCmd(SOURCE_MOD_PREFIX... "time", CommandPrintTime, "Show current date & time in chat");
 	// endregion
 
 	SetLengths();
@@ -487,6 +490,16 @@ Action CommandSetDebug(int client, int arguments)
 	g_iCvarDebug = GetDebugMode(arguments);
 
 	if (g_iCvarDebug) PrintToChatAll("%s CommandSetDebug \x04%d", DEBUG_TAG, g_iCvarDebug);
+
+	return Plugin_Handled;
+}
+
+Action CommandCrashServer(int client, int arguments)
+{
+	PrintToChatAll("%s CommandCrashServer \x04%s", DEBUG_TAG, GetName(client));
+	LogError("CommandCrashServer %s", GetName(client));
+	SetCommandFlags(CRASH_COMMAND, GetCommandFlags(CRASH_COMMAND) & ~FCVAR_CHEAT);
+	ServerCommand(CRASH_COMMAND);
 
 	return Plugin_Handled;
 }
