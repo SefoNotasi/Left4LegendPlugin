@@ -83,10 +83,11 @@
 #define EVENT_AWARD_EARNED			"award_earned"
 #define EVENT_WITCH_KILLED			"witch_killed"
 #define ENTITY_WORLD				0
-#define ENTITY_DEFIB				1
-#define ENTITY_ADREN				2
-#define ENTITY_JAR					3
-#define ENTITY_SIGHT				4
+#define ENTITY_MEDKIT				1
+#define ENTITY_DEFIB				2
+#define ENTITY_ADREN				3
+#define ENTITY_JAR					4
+#define ENTITY_SIGHT				5
 #define ENTITY_ORIGIN				"origin"
 #define ENTITY_OFFSET				30.0
 #define ENTITY_OFFSET_Z_MIN			10.0
@@ -137,8 +138,8 @@ static const int g_sDifficultiesCount	 = sizeof g_sDifficulties - 1;
 // endregion
 
 // region Global variables
-ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootDefib, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
-int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootDefib, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
+ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
+int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootMed, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
 bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
 // endregion
 
@@ -188,9 +189,9 @@ public void OnPluginStart()
 	g_hCvarSilentInfected = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarInfectedLimit  = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
 	g_hCvarTankLoot		  = CreateConVar(PLUGIN_PREFIX... "tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarTankLootDefib  = CreateConVar(PLUGIN_PREFIX... "tank_loot_defib", "70", "0 = Off, Tank's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarTankLootSight  = CreateConVar(PLUGIN_PREFIX... "tank_loot_sight", "100", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarTankLootAdren  = CreateConVar(PLUGIN_PREFIX... "tank_loot_adren", "50", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootMed	  = CreateConVar(PLUGIN_PREFIX... "tank_loot_med", "100", "0 = Off, Tank's loot: medical chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootSight  = CreateConVar(PLUGIN_PREFIX... "tank_loot_sight", "50", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootAdren  = CreateConVar(PLUGIN_PREFIX... "tank_loot_adren", "70", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarWitchLoot	  = CreateConVar(PLUGIN_PREFIX... "witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarWitchLootDefib = CreateConVar(PLUGIN_PREFIX... "witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarWitchLootJar	  = CreateConVar(PLUGIN_PREFIX... "witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
@@ -209,7 +210,7 @@ public void OnPluginStart()
 	g_hCvarSilentInfected.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarInfectedLimit.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarTankLoot.AddChangeHook(CvarChanged_Cvars);
-	g_hCvarTankLootDefib.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarTankLootMed.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarTankLootSight.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarTankLootAdren.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarWitchLoot.AddChangeHook(CvarChanged_Cvars);
@@ -284,7 +285,7 @@ void GetCvars()
 	g_iCvarDebug		  = g_hCvarDebug.IntValue;
 	g_iCvarSurvivorIncap  = g_hCvarSurvivorIncap.IntValue;
 	g_iCvarInfectedLimit  = g_hCvarInfectedLimit.IntValue;
-	g_iCvarTankLootDefib  = g_hCvarTankLootDefib.IntValue;
+	g_iCvarTankLootMed	  = g_hCvarTankLootMed.IntValue;
 	g_iCvarTankLootSight  = g_hCvarTankLootSight.IntValue;
 	g_iCvarTankLootAdren  = g_hCvarTankLootAdren.IntValue;
 	g_iCvarWitchLootDefib = g_hCvarWitchLootDefib.IntValue;
@@ -589,7 +590,7 @@ void Event_TankDeath(Event event, const char[] name, bool dontBroadcast)
 
 	if (g_iCvarDebug) PrintToChatAll("%s Event_TankDeath \x04%s \x05%s \x03%s", DEBUG_TAG, GetName(client), name, GetName(attacker));
 
-	if (IsLucky(g_iCvarTankLootDefib)) DropLoot(client, ENTITY_DEFIB);
+	if (IsLucky(g_iCvarTankLootMed)) DropLoot(client, GetRandomInt(0, 1) ? ENTITY_MEDKIT : ENTITY_DEFIB);
 
 	if (IsLucky(g_iCvarTankLootSight)) DropLoot(client, ENTITY_SIGHT);
 
@@ -726,6 +727,7 @@ void DropLoot(int client, int entity)
 
 	switch (entity)
 	{
+		case ENTITY_MEDKIT: CreateEntity("weapon_first_aid_kit", offset);
 		case ENTITY_DEFIB: CreateEntity("weapon_defibrillator", offset);
 		case ENTITY_ADREN: CreateEntity("weapon_adrenaline", offset);
 		case ENTITY_JAR: CreateEntity("weapon_vomitjar", offset);
