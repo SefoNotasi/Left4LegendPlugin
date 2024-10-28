@@ -11,6 +11,7 @@
  * 东 (RestrictedGameModes.sp)
  *
  * Grey83 (kill feed)
+ * dustin (free roam)
  * honorcode23, asto (PZDmgMsg)
  * Dragokas (natives)
  *
@@ -34,12 +35,14 @@
 #define PLUGIN_PREFIX				"l4d2_l4lp_"
 #define SOURCE_MOD_PREFIX			"sm_"
 #define DEBUG_TAG					"\x04[\x05L4LP\x04] \x03Debug:\x01"
+#define SPECTATE_COMMAND			"spec_mode"
 #define CRASH_COMMAND				"crash"
 #define SPAWN_COMMAND_OLD			"z_spawn_old"
 #define SPAWN_ARGUMENT_AUTO			"auto"
 #define CVAR_FLAGS					FCVAR_NOTIFY
 #define DEBUG_EVENTS				2
 #define DEBUG_SOUNDS				3
+#define TEAM_SPECTATORS				1
 #define TEAM_SURVIVORS				2
 #define TEAM_INFECTED				3
 #define TANK_CLASS					8
@@ -68,9 +71,12 @@
 #define ANGLE_UP					90.0
 #define ANGLE_HORIZONTAL			0.0
 #define PROP_SEND					Prop_Send
+#define PROP_OBSERVER_MODE			"m_iObserverMode"
 #define PROP_CAR_ALARM				"prop_car_alarm"
 #define EVENT_CAR_ALARM				"OnCarAlarmStart"
 #define EVENT_USER_MESSAGE			"PZDmgMsg"
+#define EVENT_TEAM					"team"
+#define EVENT_PLAYER_TEAM			"player_team"
 #define EVENT_PLAYER_DEATH			"player_death"
 #define EVENT_PLAYER_INCAP			"player_incapacitated"
 #define EVENT_LEDGE_GRAB			"player_ledge_grab"
@@ -97,6 +103,9 @@
 #define ENTITY_MUST_EXIST			"2"
 #define NATIVE_FAILURE				0
 #define NATIVE_SUCCESS				1
+#define TIMER_SPECTATE				0.02
+#define SPECTATE_FIRST_PERSON		4
+#define SPECTATE_FREE_ROAM			6
 // endregion
 
 // region Global static constants
@@ -138,9 +147,9 @@ static const int g_sDifficultiesCount	 = sizeof g_sDifficulties - 1;
 // endregion
 
 // region Global variables
-ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
+ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarFreeRoam, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
 int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootMed, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
-bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
+bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarFreeRoam, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
 // endregion
 
 // region Plugin
@@ -185,6 +194,7 @@ public void OnPluginStart()
 	g_hCvarWitchHarasser  = CreateConVar(PLUGIN_PREFIX... "witch_spawn_mob", "1", "0 = Off, 1 = Spawn horde when witch is enraged", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarPrintRestarts  = CreateConVar(PLUGIN_PREFIX... "print_restarts", "0", "0 = Off, 1 = Show in chat number of restarts on each new round", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarKillFeed		  = CreateConVar(PLUGIN_PREFIX... "kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarFreeRoam		  = CreateConVar(PLUGIN_PREFIX... "free_roam", "1", "0 = Off, 1 = Disable free roam", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarCarAlarm		  = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarSilentInfected = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarInfectedLimit  = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
@@ -206,6 +216,7 @@ public void OnPluginStart()
 	g_hCvarWitchHarasser.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarPrintRestarts.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarKillFeed.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarFreeRoam.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarCarAlarm.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarSilentInfected.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarInfectedLimit.AddChangeHook(CvarChanged_Cvars);
@@ -295,6 +306,7 @@ void GetCvars()
 	g_bCvarSurvivorDeath  = g_hCvarSurvivorDeath.BoolValue;
 	g_bCvarWitchHarasser  = g_hCvarWitchHarasser.BoolValue;
 	g_bCvarKillFeed		  = g_hCvarKillFeed.BoolValue;
+	g_bCvarFreeRoam		  = g_hCvarFreeRoam.BoolValue;
 	g_bCvarCarAlarm		  = g_hCvarCarAlarm.BoolValue;
 	g_bCvarSilentInfected = g_hCvarSilentInfected.BoolValue;
 	g_bCvarPrintRestarts  = g_hCvarPrintRestarts.BoolValue;
@@ -308,6 +320,7 @@ void HookEvents()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s HookEvents", DEBUG_TAG);
 
+	HookEvent(EVENT_PLAYER_TEAM, Event_PlayerTeam);
 	HookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
 	HookEvent(EVENT_PLAYER_DEATH, Event_TankDeath);
 	HookEvent(EVENT_PLAYER_INCAP, Event_SurvivorIncap);
@@ -326,12 +339,14 @@ void HookEvents()
 	HookUserMessage(GetUserMessageId(EVENT_USER_MESSAGE), PZDmgMsg, true);
 	HookEntityOutput(PROP_CAR_ALARM, EVENT_CAR_ALARM, Event_CarAlarm);
 	AddNormalSoundHook(SoundHook);
+	AddCommandListener(CommandSpectate, SPECTATE_COMMAND);
 }
 
 void UnhookEvents()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s UnhookEvents", DEBUG_TAG);
 
+	UnhookEvent(EVENT_PLAYER_TEAM, Event_PlayerTeam);
 	UnhookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
 	UnhookEvent(EVENT_PLAYER_DEATH, Event_TankDeath);
 	UnhookEvent(EVENT_PLAYER_INCAP, Event_SurvivorIncap);
@@ -350,6 +365,7 @@ void UnhookEvents()
 	UnhookUserMessage(GetUserMessageId(EVENT_USER_MESSAGE), PZDmgMsg, true);
 	UnhookEntityOutput(PROP_CAR_ALARM, EVENT_CAR_ALARM, Event_CarAlarm);
 	RemoveNormalSoundHook(SoundHook);
+	RemoveCommandListener(CommandSpectate, SPECTATE_COMMAND);
 }
 // endregion
 
@@ -840,6 +856,77 @@ int GetDifficultyIndex(const char[] difficulty)
 		if (StrEqual(difficulty, g_sDifficulties[index], false)) return index;
 
 	return INVALID_DIFFICULTY;
+}
+// endregion
+
+// region Spectate
+public void OnClientPostAdminCheck(int client)
+{
+	if (!g_bCvarFreeRoam) return;
+
+	if (IsFakeClient(client)) return;
+
+	if (g_iCvarDebug) PrintToChatAll("%s OnClientPostAdminCheck \x04%s", DEBUG_TAG, GetName(client));
+
+	CreateTimer(TIMER_SPECTATE, Timer_Spectate, GetClientUserId(client));
+}
+
+Action CommandSpectate(int client, const char[] command, int argument)
+{
+	if (!g_bCvarFreeRoam) return Plugin_Continue;
+
+	if (!IsClientInGame(client) || IsFakeClient(client) || !IsClientSurvivorOrSpectator(client)) return Plugin_Continue;
+
+	if (g_iCvarDebug) PrintToChatAll("%s CommandSpectate \x04%s \x05%s \x03%s", DEBUG_TAG, GetName(client), command, argument);
+
+	CreateTimer(TIMER_SPECTATE, Timer_Spectate, GetClientUserId(client));
+
+	return Plugin_Changed;
+}
+
+Action Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!g_bCvarFreeRoam) return Plugin_Continue;
+
+	int client = GetEventClient(event);
+
+	if (IsFakeClient(client) || !IsEventSurvivorOrSpectator(event)) return Plugin_Continue;
+
+	if (g_iCvarDebug) PrintToChatAll("%s Event_PlayerTeam \x04%s", DEBUG_TAG, name);
+
+	CreateTimer(TIMER_SPECTATE, Timer_Spectate, GetClientUserId(client));
+
+	return Plugin_Changed;
+}
+
+Action Timer_Spectate(Handle timer, any data)
+{
+	if (!g_bCvarFreeRoam) return Plugin_Continue;
+
+	int client = GetClientOfUserId(data);
+
+	if (!(MIN_CLIENT <= client <= MaxClients) || IsFakeClient(client) || !IsClientInGame(client) || GetEntProp(client, PROP_SEND, PROP_OBSERVER_MODE) != SPECTATE_FREE_ROAM) return Plugin_Continue;
+
+	if (g_iCvarDebug) PrintToChatAll("%s Timer_Spectate", DEBUG_TAG);
+
+	SetEntProp(client, PROP_SEND, PROP_OBSERVER_MODE, SPECTATE_FIRST_PERSON);
+
+	return Plugin_Changed;
+}
+
+bool IsClientSurvivorOrSpectator(int client)
+{
+	return IsSurvivorOrSpectator(GetClientTeam(client));
+}
+
+bool IsEventSurvivorOrSpectator(Event event)
+{
+	return IsSurvivorOrSpectator(GetEventInt(event, EVENT_TEAM));
+}
+
+bool IsSurvivorOrSpectator(int team)
+{
+	return team == TEAM_SURVIVORS || TEAM_SPECTATORS;
 }
 // endregion
 
