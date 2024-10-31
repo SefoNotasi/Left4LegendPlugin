@@ -2,7 +2,7 @@
  *
  * Lombaxtard 💚
  *
- * SilverShot (l4d_silenced_infected.sp)
+ * SilverShot (l4d_silenced_infected.sp, l4d2_si_stumble.sp)
  * Eärendil (l4d_zspawn.sp)
  * BloodyBlade (l4d_witch_panic.sp)
  * Lux (CarAlarmTriggerTank.sp)
@@ -46,6 +46,7 @@
 #define TEAM_SURVIVORS				2
 #define TEAM_INFECTED				3
 #define TANK_CLASS					8
+#define TANK_RANGE					200.0
 #define MIN_CLIENT					1
 #define MIN_CHANCE					1
 #define MAX_CHANCE					100
@@ -77,6 +78,7 @@
 #define EVENT_USER_MESSAGE			"PZDmgMsg"
 #define EVENT_TEAM					"team"
 #define EVENT_PLAYER_TEAM			"player_team"
+#define EVENT_PLAYER_SPAWN			"player_spawn"
 #define EVENT_PLAYER_DEATH			"player_death"
 #define EVENT_PLAYER_INCAP			"player_incapacitated"
 #define EVENT_LEDGE_GRAB			"player_ledge_grab"
@@ -101,8 +103,11 @@
 #define ENTITY_DISABLE				"0"
 #define ENTITY_ENABLE				"1"
 #define ENTITY_MUST_EXIST			"2"
+#define ENTITY_FLAGS				"m_fFlags"
+#define VECTOR_ORIGIN				"m_vecOrigin"
 #define NATIVE_FAILURE				0
 #define NATIVE_SUCCESS				1
+#define TIMER_TANK_LANDING			0.1
 #define TIMER_SPECTATE				0.02
 #define SPECTATE_FIRST_PERSON		4
 #define SPECTATE_FREE_ROAM			6
@@ -147,9 +152,9 @@ static const int g_sDifficultiesCount	 = sizeof g_sDifficulties - 1;
 // endregion
 
 // region Global variables
-ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarFreeRoam, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
+ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarFreeRoam, g_hCvarTankAirMovement, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
 int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootMed, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
-bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarFreeRoam, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
+bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarFreeRoam, g_bCvarTankAirMovement, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
 // endregion
 
 // region Plugin
@@ -187,26 +192,27 @@ public void OnPluginStart()
 	// region Cvars
 	CreateConVar(PLUGIN_PREFIX... "version", PLUGIN_VERSION, "Left 4 Legend plugin version", CVAR_FLAGS | FCVAR_DONTRECORD);
 	CreateConVar("mat_hdr_manual_tonemap_rate", "1.0", "Fix: ConVarRef mat_hdr_manual_tonemap_rate doesn't point to an existing ConVar", FCVAR_NONE);
-	g_hCvarEnable		  = CreateConVar(PLUGIN_PREFIX... "enable", "1", "0 = Plugin off, 1 = Plugin on", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarDebug		  = CreateConVar(PLUGIN_PREFIX... "debug", "0", "0 = Debug off, 1 = Debug on, 2 = Debug events, 3 = Debug sounds", CVAR_FLAGS, true, float(DISABLE), true, float(DEBUG_SOUNDS));
-	g_hCvarSurvivorIncap  = CreateConVar(PLUGIN_PREFIX... "incap_spawn_si", "1", "0 = Off, Number of special infected spawned when a survivor is incapacitated", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
-	g_hCvarSurvivorDeath  = CreateConVar(PLUGIN_PREFIX... "death_spawn_mob", "1", "0 = Off, 1 = Spawn horde when a survivor dies", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarWitchHarasser  = CreateConVar(PLUGIN_PREFIX... "witch_spawn_mob", "1", "0 = Off, 1 = Spawn horde when witch is enraged", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarPrintRestarts  = CreateConVar(PLUGIN_PREFIX... "print_restarts", "0", "0 = Off, 1 = Show in chat number of restarts on each new round", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarKillFeed		  = CreateConVar(PLUGIN_PREFIX... "kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarFreeRoam		  = CreateConVar(PLUGIN_PREFIX... "free_roam", "1", "0 = Off, 1 = Disable free roam", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarCarAlarm		  = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarSilentInfected = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarInfectedLimit  = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
-	g_hCvarTankLoot		  = CreateConVar(PLUGIN_PREFIX... "tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarTankLootMed	  = CreateConVar(PLUGIN_PREFIX... "tank_loot_med", "100", "0 = Off, Tank's loot: medical chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarTankLootSight  = CreateConVar(PLUGIN_PREFIX... "tank_loot_sight", "50", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarTankLootAdren  = CreateConVar(PLUGIN_PREFIX... "tank_loot_adren", "70", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarWitchLoot	  = CreateConVar(PLUGIN_PREFIX... "witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarWitchLootDefib = CreateConVar(PLUGIN_PREFIX... "witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarWitchLootJar	  = CreateConVar(PLUGIN_PREFIX... "witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarMinDifficulty  = CreateConVar(PLUGIN_PREFIX... "min_difficulty", "2", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
-	g_hCvarDifficulty	  = FindConVar("z_difficulty");
+	g_hCvarEnable		   = CreateConVar(PLUGIN_PREFIX... "enable", "1", "0 = Plugin off, 1 = Plugin on", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarDebug		   = CreateConVar(PLUGIN_PREFIX... "debug", "0", "0 = Debug off, 1 = Debug on, 2 = Debug events, 3 = Debug sounds", CVAR_FLAGS, true, float(DISABLE), true, float(DEBUG_SOUNDS));
+	g_hCvarSurvivorIncap   = CreateConVar(PLUGIN_PREFIX... "incap_spawn_si", "1", "0 = Off, Number of special infected spawned when a survivor is incapacitated", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
+	g_hCvarSurvivorDeath   = CreateConVar(PLUGIN_PREFIX... "death_spawn_mob", "1", "0 = Off, 1 = Spawn horde when a survivor dies", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarWitchHarasser   = CreateConVar(PLUGIN_PREFIX... "witch_spawn_mob", "1", "0 = Off, 1 = Spawn horde when witch is enraged", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarPrintRestarts   = CreateConVar(PLUGIN_PREFIX... "print_restarts", "0", "0 = Off, 1 = Show in chat number of restarts on each new round", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarKillFeed		   = CreateConVar(PLUGIN_PREFIX... "kill_feed", "1", "0 = Off, 1 = Disable kill feed", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarFreeRoam		   = CreateConVar(PLUGIN_PREFIX... "free_roam", "1", "0 = Off, 1 = Disable free roam", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarTankAirMovement = CreateConVar(PLUGIN_PREFIX... "tank_air_movement", "1", "0 = Off, 1 = Disable tank movement in the air", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarCarAlarm		   = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarSilentInfected  = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarInfectedLimit   = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
+	g_hCvarTankLoot		   = CreateConVar(PLUGIN_PREFIX... "tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarTankLootMed	   = CreateConVar(PLUGIN_PREFIX... "tank_loot_med", "100", "0 = Off, Tank's loot: medical chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootSight   = CreateConVar(PLUGIN_PREFIX... "tank_loot_sight", "50", "0 = Off, Tank's loot: laser sight chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarTankLootAdren   = CreateConVar(PLUGIN_PREFIX... "tank_loot_adren", "70", "0 = Off, Tank's loot: adrenaline chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarWitchLoot	   = CreateConVar(PLUGIN_PREFIX... "witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarWitchLootDefib  = CreateConVar(PLUGIN_PREFIX... "witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarWitchLootJar	   = CreateConVar(PLUGIN_PREFIX... "witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarMinDifficulty   = CreateConVar(PLUGIN_PREFIX... "min_difficulty", "2", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
+	g_hCvarDifficulty	   = FindConVar("z_difficulty");
 	AutoExecConfig(true, PLUGIN_FILE_NAME);
 
 	g_hCvarEnable.AddChangeHook(CvarChanged_Enable);
@@ -217,6 +223,7 @@ public void OnPluginStart()
 	g_hCvarPrintRestarts.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarKillFeed.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarFreeRoam.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarTankAirMovement.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarCarAlarm.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarSilentInfected.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarInfectedLimit.AddChangeHook(CvarChanged_Cvars);
@@ -293,25 +300,26 @@ void GetCvars()
 {
 	if (g_iCvarDebug) PrintToChatAll("%s GetCvars", DEBUG_TAG);
 
-	g_iCvarDebug		  = g_hCvarDebug.IntValue;
-	g_iCvarSurvivorIncap  = g_hCvarSurvivorIncap.IntValue;
-	g_iCvarInfectedLimit  = g_hCvarInfectedLimit.IntValue;
-	g_iCvarTankLootMed	  = g_hCvarTankLootMed.IntValue;
-	g_iCvarTankLootSight  = g_hCvarTankLootSight.IntValue;
-	g_iCvarTankLootAdren  = g_hCvarTankLootAdren.IntValue;
-	g_iCvarWitchLootDefib = g_hCvarWitchLootDefib.IntValue;
-	g_iCvarWitchLootJar	  = g_hCvarWitchLootJar.IntValue;
-	g_iCvarMinDifficulty  = g_hCvarMinDifficulty.IntValue;
+	g_iCvarDebug		   = g_hCvarDebug.IntValue;
+	g_iCvarSurvivorIncap   = g_hCvarSurvivorIncap.IntValue;
+	g_iCvarInfectedLimit   = g_hCvarInfectedLimit.IntValue;
+	g_iCvarTankLootMed	   = g_hCvarTankLootMed.IntValue;
+	g_iCvarTankLootSight   = g_hCvarTankLootSight.IntValue;
+	g_iCvarTankLootAdren   = g_hCvarTankLootAdren.IntValue;
+	g_iCvarWitchLootDefib  = g_hCvarWitchLootDefib.IntValue;
+	g_iCvarWitchLootJar	   = g_hCvarWitchLootJar.IntValue;
+	g_iCvarMinDifficulty   = g_hCvarMinDifficulty.IntValue;
 
-	g_bCvarSurvivorDeath  = g_hCvarSurvivorDeath.BoolValue;
-	g_bCvarWitchHarasser  = g_hCvarWitchHarasser.BoolValue;
-	g_bCvarKillFeed		  = g_hCvarKillFeed.BoolValue;
-	g_bCvarFreeRoam		  = g_hCvarFreeRoam.BoolValue;
-	g_bCvarCarAlarm		  = g_hCvarCarAlarm.BoolValue;
-	g_bCvarSilentInfected = g_hCvarSilentInfected.BoolValue;
-	g_bCvarPrintRestarts  = g_hCvarPrintRestarts.BoolValue;
-	g_bCvarTankLoot		  = g_hCvarTankLoot.BoolValue;
-	g_bCvarWitchLoot	  = g_hCvarWitchLoot.BoolValue;
+	g_bCvarSurvivorDeath   = g_hCvarSurvivorDeath.BoolValue;
+	g_bCvarWitchHarasser   = g_hCvarWitchHarasser.BoolValue;
+	g_bCvarKillFeed		   = g_hCvarKillFeed.BoolValue;
+	g_bCvarFreeRoam		   = g_hCvarFreeRoam.BoolValue;
+	g_bCvarTankAirMovement = g_hCvarTankAirMovement.BoolValue;
+	g_bCvarCarAlarm		   = g_hCvarCarAlarm.BoolValue;
+	g_bCvarSilentInfected  = g_hCvarSilentInfected.BoolValue;
+	g_bCvarPrintRestarts   = g_hCvarPrintRestarts.BoolValue;
+	g_bCvarTankLoot		   = g_hCvarTankLoot.BoolValue;
+	g_bCvarWitchLoot	   = g_hCvarWitchLoot.BoolValue;
 }
 // endregion
 
@@ -321,8 +329,9 @@ void HookEvents()
 	if (g_iCvarDebug) PrintToChatAll("%s HookEvents", DEBUG_TAG);
 
 	HookEvent(EVENT_PLAYER_TEAM, Event_PlayerTeam);
-	HookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
+	HookEvent(EVENT_PLAYER_SPAWN, Event_TankSpawn);
 	HookEvent(EVENT_PLAYER_DEATH, Event_TankDeath);
+	HookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
 	HookEvent(EVENT_PLAYER_INCAP, Event_SurvivorIncap);
 	HookEvent(EVENT_LEDGE_GRAB, Event_SurvivorIncap);
 	HookEvent(EVENT_WITCH_HARASSER, Event_WitchRage);
@@ -347,8 +356,9 @@ void UnhookEvents()
 	if (g_iCvarDebug) PrintToChatAll("%s UnhookEvents", DEBUG_TAG);
 
 	UnhookEvent(EVENT_PLAYER_TEAM, Event_PlayerTeam);
-	UnhookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
+	UnhookEvent(EVENT_PLAYER_SPAWN, Event_TankSpawn);
 	UnhookEvent(EVENT_PLAYER_DEATH, Event_TankDeath);
+	UnhookEvent(EVENT_PLAYER_DEATH, Event_SurvivorDeath);
 	UnhookEvent(EVENT_PLAYER_INCAP, Event_SurvivorIncap);
 	UnhookEvent(EVENT_LEDGE_GRAB, Event_SurvivorIncap);
 	UnhookEvent(EVENT_WITCH_HARASSER, Event_WitchRage);
@@ -595,16 +605,19 @@ void Event_CarAlarm(const char[] output, int caller, int activator, float delay)
 
 void Event_TankDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	if (!g_bCvarTankLoot) return;
+	int client = GetEventClient(event);
 
-	int client	 = GetEventClient(event);
+	if (!IsClient(client) || !IsInfected(client) || !IsTank(client)) return;
+
 	int attacker = GetEventAttacker(event);
 
-	if (IsClientAttacker(client, attacker) || !IsClient(client) || !IsClientConnected(client) || !IsClientInGame(client) || !IsInfected(client)) return;
-
-	if (!IsTank(client)) return;
-
 	if (g_iCvarDebug) PrintToChatAll("%s Event_TankDeath \x04%s \x05%s \x03%s", DEBUG_TAG, GetName(client), name, GetName(attacker));
+
+	if (g_bCvarTankAirMovement) SDKUnhook(client, SDKHook_OnTakeDamageAlive, OnTakeDamage);
+
+	if (!g_bCvarTankLoot) return;
+
+	if (IsClientAttacker(client, attacker) || !IsClientConnected(client) || !IsClientInGame(client)) return;
 
 	if (IsLucky(g_iCvarTankLootMed)) DropLoot(client, GetRandomInt(0, 1) ? ENTITY_MEDKIT : ENTITY_DEFIB);
 
@@ -734,7 +747,7 @@ void DropLoot(int client, int entity)
 	if (!entity) return;
 
 	float origin[AXES_XYZ];
-	GetEntPropVector(client, PROP_SEND, "m_vecOrigin", origin);
+	GetEntPropVector(client, PROP_SEND, VECTOR_ORIGIN, origin);
 
 	float offset[AXES_XYZ];
 	GetRandomOffset(origin, offset);
@@ -927,6 +940,65 @@ bool IsEventSurvivorOrSpectator(Event event)
 bool IsSurvivorOrSpectator(int team)
 {
 	return team == TEAM_SURVIVORS || TEAM_SPECTATORS;
+}
+// endregion
+
+// region Tank air movement
+void Event_TankSpawn(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!g_bCvarTankAirMovement) return;
+
+	int client = GetEventClient(event);
+
+	if (!client || !IsInfected(client) || !IsTank(client)) return;
+
+	if (g_iCvarDebug) PrintToChatAll("%s Event_TankSpawn \x04%s \x05%s", DEBUG_TAG, GetName(client), name);
+
+	SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeDamage);
+}
+
+Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype)
+{
+	if (inflictor <= MaxClients || !IsValidEntity(inflictor)) return Plugin_Continue;
+
+	static char className[17];
+	GetEdictClassname(inflictor, className, sizeof(className));
+
+	if (strcmp(className, "grenade_launcher") != STRING_EQUAL || !IsInfected(victim)) return Plugin_Continue;
+
+	float vectorPosition[AXES_XYZ], vectorTarget[AXES_XYZ];
+	GetEntPropVector(inflictor, PROP_SEND, VECTOR_ORIGIN, vectorPosition);
+	GetClientAbsOrigin(victim, vectorTarget);
+
+	if (GetVectorDistance(vectorPosition, vectorTarget) > TANK_RANGE) return Plugin_Continue;
+
+	int flags = GetEntProp(victim, PROP_SEND, ENTITY_FLAGS);
+	SetEntProp(victim, PROP_SEND, ENTITY_FLAGS, flags | FL_FROZEN);
+
+	if (g_iCvarDebug) PrintToChatAll("%s OnTakeDamage \x04%s \x05%s", DEBUG_TAG, GetName(victim), GetName(attacker));
+
+	CreateTimer(TIMER_TANK_LANDING, TankLanding, GetClientUserId(victim), TIMER_REPEAT);
+
+	return Plugin_Changed;
+}
+
+Action TankLanding(Handle timer, int userId)
+{
+	int client = GetClientOfUserId(userId);
+
+	if (!client || !IsClientInGame(client)) return Plugin_Stop;
+
+	float velocity[AXES_XYZ];
+	GetEntPropVector(client, Prop_Data, "m_vecVelocity", velocity);
+
+	if (velocity[AXIS_Z] != ANGLE_HORIZONTAL) return Plugin_Continue;
+
+	if (g_iCvarDebug) PrintToChatAll("%s TankLanding \x04%s", DEBUG_TAG, GetName(client));
+
+	int flags = GetEntProp(client, PROP_SEND, ENTITY_FLAGS);
+	SetEntProp(client, PROP_SEND, ENTITY_FLAGS, flags & ~FL_FROZEN);
+
+	return Plugin_Stop;
 }
 // endregion
 
