@@ -152,8 +152,8 @@ static const int g_sDifficultiesCount	 = sizeof g_sDifficulties - 1;
 // endregion
 
 // region Global variables
-ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarFreeRoam, g_hCvarTankAirMovement, g_hCvarCarAlarm, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
-int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarTankLootMed, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
+ConVar			 g_hCvarEnable, g_hCvarDebug, g_hCvarSurvivorIncap, g_hCvarSurvivorDeath, g_hCvarWitchHarasser, g_hCvarPrintRestarts, g_hCvarKillFeed, g_hCvarFreeRoam, g_hCvarTankAirMovement, g_hCvarCarAlarm, g_hCvarCarAlarmChance, g_hCvarSilentInfected, g_hCvarInfectedLimit, g_hCvarTankLoot, g_hCvarTankLootMed, g_hCvarTankLootSight, g_hCvarTankLootAdren, g_hCvarWitchLoot, g_hCvarWitchLootDefib, g_hCvarWitchLootJar, g_hCvarMinDifficulty, g_hCvarDifficulty;
+int				 g_iCvarDebug, g_iCvarSurvivorIncap, g_iCvarInfectedLimit, g_iCvarCarAlarmChance, g_iCvarTankLootMed, g_iCvarTankLootSight, g_iCvarTankLootAdren, g_iCvarWitchLootDefib, g_iCvarWitchLootJar, g_iCvarMinDifficulty, g_iRestarts = 0, g_iInfectedSoundsLengths[sizeof g_sInfectedSounds];
 bool			 g_bCvarEnable, g_bCvarSurvivorDeath, g_bCvarWitchHarasser, g_bCvarKillFeed, g_bCvarFreeRoam, g_bCvarTankAirMovement, g_bCvarCarAlarm, g_bCvarSilentInfected, g_bCvarPrintRestarts, g_bCvarTankLoot, g_bCvarWitchLoot;
 // endregion
 
@@ -202,6 +202,7 @@ public void OnPluginStart()
 	g_hCvarFreeRoam		   = CreateConVar(PLUGIN_PREFIX... "free_roam", "1", "0 = Off, 1 = Disable free roam", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarTankAirMovement = CreateConVar(PLUGIN_PREFIX... "tank_air_movement", "1", "0 = Off, 1 = Disable tank movement in the air", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarCarAlarm		   = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarCarAlarmChance  = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank_chance", "70", "0 = Off, Car alarm: spawn tank chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarSilentInfected  = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarInfectedLimit   = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
 	g_hCvarTankLoot		   = CreateConVar(PLUGIN_PREFIX... "tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
@@ -225,6 +226,7 @@ public void OnPluginStart()
 	g_hCvarFreeRoam.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarTankAirMovement.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarCarAlarm.AddChangeHook(CvarChanged_Cvars);
+	g_hCvarCarAlarmChance.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarSilentInfected.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarInfectedLimit.AddChangeHook(CvarChanged_Cvars);
 	g_hCvarTankLoot.AddChangeHook(CvarChanged_Cvars);
@@ -303,6 +305,7 @@ void GetCvars()
 	g_iCvarDebug		   = g_hCvarDebug.IntValue;
 	g_iCvarSurvivorIncap   = g_hCvarSurvivorIncap.IntValue;
 	g_iCvarInfectedLimit   = g_hCvarInfectedLimit.IntValue;
+	g_iCvarCarAlarmChance  = g_hCvarCarAlarmChance.IntValue;
 	g_iCvarTankLootMed	   = g_hCvarTankLootMed.IntValue;
 	g_iCvarTankLootSight   = g_hCvarTankLootSight.IntValue;
 	g_iCvarTankLootAdren   = g_hCvarTankLootAdren.IntValue;
@@ -600,7 +603,7 @@ void Event_CarAlarm(const char[] output, int caller, int activator, float delay)
 
 	if (g_iCvarDebug) PrintToChatAll("%s Event_CarAlarm \x04%s \x05%s", DEBUG_TAG, GetName(client), output);
 
-	SpawnTank(client);
+	if (IsLucky(g_iCvarCarAlarmChance)) SpawnTank(client);
 }
 
 void Event_TankDeath(Event event, const char[] name, bool dontBroadcast)
@@ -939,7 +942,7 @@ bool IsEventSurvivorOrSpectator(Event event)
 
 bool IsSurvivorOrSpectator(int team)
 {
-	return team == TEAM_SURVIVORS || TEAM_SPECTATORS;
+	return team == TEAM_SURVIVORS || team == TEAM_SPECTATORS;
 }
 // endregion
 
