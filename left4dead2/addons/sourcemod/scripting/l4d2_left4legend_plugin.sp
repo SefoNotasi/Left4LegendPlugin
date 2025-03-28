@@ -212,7 +212,7 @@ public void OnPluginStart()
 	g_hCvarWitchLoot	   = CreateConVar(PLUGIN_PREFIX... "witch_loot", "1", "0 = Off, 1 = Killed witch drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarWitchLootDefib  = CreateConVar(PLUGIN_PREFIX... "witch_loot_defib", "100", "0 = Off, Witch's loot: defibrillator chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
 	g_hCvarWitchLootJar	   = CreateConVar(PLUGIN_PREFIX... "witch_loot_jar", "70", "0 = Off, Witch's loot: vomit jar chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarMinDifficulty   = CreateConVar(PLUGIN_PREFIX... "min_difficulty", "2", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
+	g_hCvarMinDifficulty   = CreateConVar(PLUGIN_PREFIX... "min_difficulty", "0", "Minimum difficulty level: 0 = Easy, 1 = Normal, 2 = Hard (Advanced), 3 = Impossible (Expert)", CVAR_FLAGS, true, float(DISABLE), true, float(g_sDifficultiesCount));
 	g_hCvarDifficulty	   = FindConVar("z_difficulty");
 	AutoExecConfig(true, PLUGIN_FILE_NAME);
 
