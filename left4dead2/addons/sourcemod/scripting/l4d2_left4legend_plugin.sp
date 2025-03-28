@@ -202,8 +202,8 @@ public void OnPluginStart()
 	g_hCvarFreeRoam		   = CreateConVar(PLUGIN_PREFIX... "free_roam", "1", "0 = Off, 1 = Disable free roam", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarTankAirMovement = CreateConVar(PLUGIN_PREFIX... "tank_air_movement", "1", "0 = Off, 1 = Disable tank movement in the air", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarCarAlarm		   = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank", "1", "0 = Off, 1 = A car alarm spawns tank", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
-	g_hCvarCarAlarmChance  = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank_chance", "70", "0 = Off, Car alarm: spawn tank chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
-	g_hCvarSilentInfected  = CreateConVar(PLUGIN_PREFIX... "silent_infected", "1", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
+	g_hCvarCarAlarmChance  = CreateConVar(PLUGIN_PREFIX... "alarm_spawn_tank_chance", "50", "0 = Off, Car alarm: spawn tank chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
+	g_hCvarSilentInfected  = CreateConVar(PLUGIN_PREFIX... "silent_infected", "0", "0 = Off, 1 = Disable alert & idle sounds of special infected", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarInfectedLimit   = CreateConVar(PLUGIN_PREFIX... "infected_limit", "4", "0 = Off, Limit of special infected alive (tanks & witches not included)", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_SI));
 	g_hCvarTankLoot		   = CreateConVar(PLUGIN_PREFIX... "tank_loot", "1", "0 = Off, 1 = Killed tank drops loot", CVAR_FLAGS, true, float(DISABLE), true, float(ENABLE));
 	g_hCvarTankLootMed	   = CreateConVar(PLUGIN_PREFIX... "tank_loot_med", "100", "0 = Off, Tank's loot: medical chance", CVAR_FLAGS, true, float(DISABLE), true, float(MAX_CHANCE));
